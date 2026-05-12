@@ -16,6 +16,10 @@
     <a href="https://app.opendronelog.com">
         <img src="https://img.shields.io/badge/Launch-Webapp-red?style=for-the-badge&logo=globe" alt="Launch Webapp" height="48"/>
     </a>
+    &nbsp;&nbsp;
+    <a href="https://play.google.com/store/apps/details?id=com.opendronelog">
+        <img src="https://img.shields.io/badge/Get%20it%20on-Google%20Play-34A853?style=for-the-badge&logo=googleplay&logoColor=white" alt="Get it on Google Play" height="48"/>
+    </a>
 </p>
 
 
@@ -627,6 +631,19 @@ While some parts of this codebase were written with AI assistance (Claude Opus 4
 </table>
 
 #### *Want to feature your logo and sponsor this project? [Get in touch](https://opendronelog.com/#sponsors).*
+<br>
+<table width="100%" style="table-layout: fixed;">
+    <tr>
+        <td align="center" width="64">
+            <a href="https://signpath.io">
+                <img src="https://avatars.githubusercontent.com/u/34448643" alt="SignPath" width="40" height="40" />
+            </a>
+        </td>
+        <td>
+            Free code signing on Windows provided by <a href="https://signpath.io">SignPath.io</a>, certificate by <a href="https://signpath.org">SignPath Foundation</a>
+        </td>
+    </tr>
+</table>
 
 
 ## Star History
