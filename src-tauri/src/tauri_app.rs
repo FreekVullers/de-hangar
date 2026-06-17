@@ -602,6 +602,30 @@
         Ok(operations)
     }
 
+    /// Create a new flight operation
+    #[tauri::command]
+    pub async fn create_operation(
+        project_id: Option<i64>,
+        name: String,
+        purpose: Option<String>,
+        state: State<'_, AppState>,
+    ) -> Result<i64, String> {
+        log::info!("Creating operation: {}", name);
+
+        let operation_id = state
+            .db_authenticated()?
+            .create_operation(
+                project_id,
+                &name,
+                purpose.as_deref(),
+            )
+            .map_err(|e| format!("Failed to create operation: {}", e))?;
+
+        log::info!("Successfully created operation with ID: {}", operation_id);
+
+        Ok(operation_id)
+    }
+
     #[tauri::command]
     pub async fn get_flight_data(
         flight_id: i64,
@@ -1705,6 +1729,8 @@
                 remove_from_sync_blacklist,
                 clear_sync_blacklist,
                 get_flights,
+                get_operations,
+                create_operations,
                 get_flight_data,
                 get_overview_stats,
                 get_battery_full_capacity_history,
@@ -1759,5 +1785,5 @@
                 set_setting_value,
             ])
             .run(tauri::generate_context!())
-            .expect("Failed to run Open DroneLog");
+            .expect("Failed to run De Hangar");
     }
