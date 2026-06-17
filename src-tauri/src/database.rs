@@ -237,6 +237,91 @@ impl Database {
             -- Index for sorting by flight date
             CREATE INDEX IF NOT EXISTS idx_flights_start_time 
                 ON flights(start_time DESC);
+            
+            -- ============================================================
+            -- CLIENTS TABLE: Customers / clients
+            -- ============================================================
+            CREATE TABLE IF NOT EXISTS clients (
+                id              BIGINT PRIMARY KEY,
+                name            VARCHAR NOT NULL,
+                contact_name    VARCHAR,
+                email           VARCHAR,
+                phone           VARCHAR,
+                notes           VARCHAR,
+                created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            -- ============================================================
+            -- PROJECTS TABLE: Customer projects / assignments
+            -- ============================================================
+            CREATE TABLE IF NOT EXISTS projects (
+                id              BIGINT PRIMARY KEY,
+                client_id       BIGINT,
+                name            VARCHAR NOT NULL,
+                location        VARCHAR,
+                notes           VARCHAR,
+                created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (client_id) REFERENCES clients(id)
+            );
+
+            -- ============================================================
+            -- OPERATIONS TABLE: Administrative/ILT flight operations
+            -- One operation can contain multiple imported flight logs.
+            -- ============================================================
+            CREATE TABLE IF NOT EXISTS operations (
+                id                  BIGINT PRIMARY KEY,
+                project_id          BIGINT,
+                name                VARCHAR NOT NULL,
+                purpose             VARCHAR DEFAULT '3D-mapping',
+                start_time          TIMESTAMP WITH TIME ZONE,
+                end_time            TIMESTAMP WITH TIME ZONE,
+                total_duration_secs DOUBLE,
+                notes_defects       VARCHAR,
+                notes_incidents     VARCHAR,
+                created_at          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id) REFERENCES projects(id)
+            );
+
+            -- ============================================================
+            -- OPERATION_FLIGHTS TABLE: Links imported flight logs to operations
+            -- ============================================================
+            CREATE TABLE IF NOT EXISTS operation_flights (
+                operation_id     BIGINT NOT NULL,
+                flight_id        BIGINT NOT NULL,
+                sort_order       INTEGER DEFAULT 0,
+                PRIMARY KEY (operation_id, flight_id),
+                FOREIGN KEY (operation_id) REFERENCES operations(id),
+                FOREIGN KEY (flight_id) REFERENCES flights(id)
+            );
+
+            -- ============================================================
+            -- OPERATION_DOCUMENTS TABLE: PDFs and other files linked to operations
+            -- ============================================================
+            CREATE TABLE IF NOT EXISTS operation_documents (
+                id              BIGINT PRIMARY KEY,
+                operation_id    BIGINT NOT NULL,
+                document_type   VARCHAR DEFAULT 'flight_plan',
+                file_name       VARCHAR NOT NULL,
+                stored_path     VARCHAR NOT NULL,
+                original_path   VARCHAR,
+                created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (operation_id) REFERENCES operations(id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_projects_client_id
+                ON projects(client_id);
+
+            CREATE INDEX IF NOT EXISTS idx_operations_project_id
+                ON operations(project_id);
+
+            CREATE INDEX IF NOT EXISTS idx_operation_flights_flight_id
+                ON operation_flights(flight_id);
+
+            CREATE INDEX IF NOT EXISTS idx_operation_documents_operation_id
+                ON operation_documents(operation_id);
 
             -- ============================================================
             -- TELEMETRY TABLE: Time-series data for each flight
