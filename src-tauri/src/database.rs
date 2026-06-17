@@ -1305,6 +1305,46 @@ impl Database {
         Ok(flight)
     }
 
+    /// Get all operations
+pub fn get_all_operations(&self) -> Result<Vec<Operation>, DatabaseError> {
+    let conn = self.conn.lock().unwrap();
+
+    let mut stmt = conn.prepare(
+        r#"
+        SELECT
+            id,
+            project_id,
+            name,
+            purpose,
+            CAST(start_time AS VARCHAR) AS start_time,
+            CAST(end_time AS VARCHAR) AS end_time,
+            total_duration_secs,
+            notes_defects,
+            notes_incidents
+        FROM operations
+        ORDER BY start_time DESC
+        "#,
+    )?;
+
+    let operations: Vec<Operation> = stmt
+        .query_map([], |row| {
+            Ok(Operation {
+                id: row.get(0)?,
+                project_id: row.get(1)?,
+                name: row.get(2)?,
+                purpose: row.get(3)?,
+                start_time: row.get(4)?,
+                end_time: row.get(5)?,
+                total_duration_secs: row.get(6)?,
+                notes_defects: row.get(7)?,
+                notes_incidents: row.get(8)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(operations)
+}
+
     /// Get flight telemetry with automatic downsampling for large datasets.
     ///
     /// Strategy:

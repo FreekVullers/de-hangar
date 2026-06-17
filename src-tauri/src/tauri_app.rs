@@ -586,6 +586,23 @@
     }
 
     #[tauri::command]
+    pub async fn get_operations(state: State<'_, AppState>) -> Result<Vec<Operation>, String> {
+        let start = std::time::Instant::now();
+        let operations = state
+            .db_authenticated()?
+            .get_all_operations()
+            .map_err(|e| format!("Failed to get operations: {}", e))?;
+
+        log::debug!(
+            "get_operations returned {} operations in {:.1}ms",
+            operations.len(),
+            start.elapsed().as_secs_f64() * 1000.0
+        );
+
+        Ok(operations)
+    }
+
+    #[tauri::command]
     pub async fn get_flight_data(
         flight_id: i64,
         max_points: Option<usize>,
