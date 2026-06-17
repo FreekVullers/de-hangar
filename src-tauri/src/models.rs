@@ -77,6 +77,47 @@ pub struct FlightTag {
     pub tag_type: String,  // "auto" or "manual"
 }
 
+/// Client / customer record
+/// Top-level entity that owns one or more projects
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Client {
+    pub id: i64,
+    pub name: String,
+    pub contact_name: Option<String>,
+    pub email: Option<String>,
+    pub phone: Option<String>,
+    pub notes: Option<String>,
+}
+
+/// Project linked to a client
+/// Contains one or more flight operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Project {
+    pub id: i64,
+    pub client_id: Option<i64>,
+    pub name: String,
+    pub location: Option<String>,
+    pub notes: Option<String>,
+}
+
+/// Administrative flight operation
+/// Groups multiple imported flight logs into a single mission
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Operation {
+    pub id: i64,
+    pub project_id: Option<i64>,
+    pub name: String,
+    pub purpose: Option<String>,
+    pub start_time: Option<String>,
+    pub end_time: Option<String>,
+    pub total_duration_secs: Option<f64>,
+    pub notes_defects: Option<String>,
+    pub notes_incidents: Option<String>,
+}
+
 /// Raw telemetry point from parser (for bulk insert)
 #[derive(Debug, Clone, Default)]
 pub struct TelemetryPoint {
