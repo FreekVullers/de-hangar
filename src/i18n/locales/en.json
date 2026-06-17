@@ -1,8 +1,8 @@
 {
   "app": {
-    "title": "Open DroneLog",
+    "title": "The Hangar",
     "subtitle": "Flight Analysis Dashboard",
-    "initializing": "Initializing Open DroneLog",
+    "initializing": "Initializing The Hangar",
     "initProgress": "Initialization in progress - Please wait...",
     "errorTitle": "Something went wrong",
     "errorDescription": "The app hit an unexpected error. Please restart the app. If this keeps happening, let us know.",
@@ -316,7 +316,7 @@
     "lastMaintenance": "Last maintenance: {{date}}",
     "never": "Never",
     "maintenanceDone": "✓ Maintenance Done",
-    "donationNote": "Privacy shouldn't have a price tag. I built this open-source tool to save you subscription costs and keep your data private. If Open DroneLog has saved you time or headaches, consider a small donation via",
+    "donationNote": "Privacy shouldn't have a price tag. I built this open-source tool to save you subscription costs and keep your data private. If The Hangar has saved you time or headaches, consider a small donation via",
     "donationNoteSuffix": "- it's built on late nights and a lot of coffee, and a small tip goes a long way."
   },
   "importer": {

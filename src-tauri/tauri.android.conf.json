@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Open DroneLog",
+  "productName": "De Hangar",
   "identifier": "com.opendronelog",
   "app": {
     "windows": [
