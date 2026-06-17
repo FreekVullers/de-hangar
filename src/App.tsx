@@ -503,7 +503,7 @@ function App() {
       {/* Initialization overlay - shown during DB migration or auth required */}
       {(!isFlightsInitialized || needsAuth) && <InitializationOverlay />}
 
-      {showDonationBanner && (
+      {false && showDonationBanner && (
         <div
           className={`w-full border-b border-drone-primary/40 text-gray-100 overflow-hidden ${resolvedTheme === 'light'
               ? 'bg-gradient-to-r from-violet-200 via-fuchsia-200 to-orange-200 text-gray-900'

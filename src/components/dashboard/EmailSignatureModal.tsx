@@ -92,8 +92,7 @@ function generateSignatureHtml(
 ): string {
   const darkAccent = darkenHex(accentColor, 25);
 
-  return `<a href="https://opendronelog.com" target="_blank" style="text-decoration:none;color:inherit;display:inline-block;">
-<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;border-radius:8px;overflow:hidden;">
+  return `<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;border-radius:8px;overflow:hidden;">
   <tr>
     <td style="background:#ffffff;padding:8px 16px;vertical-align:middle;text-align:center;">
       <div style="color:${accentColor};font-size:18px;font-weight:800;line-height:1.3;">${totalFlights}</div>
@@ -103,7 +102,7 @@ function generateSignatureHtml(
       <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
         <tr>
           <td style="vertical-align:middle;width:28px;">
-            <img src="${logoBase64}" alt="Open DroneLog" width="28" height="28" style="display:block;border:0;" />
+            <img src="${logoBase64}" alt="De Hangar" width="28" height="28" style="display:block;border:0;" />
           </td>
           <td style="vertical-align:middle;padding-left:8px;">
             <div style="color:#ffffff;font-size:11px;font-weight:700;letter-spacing:0.5px;line-height:1.3;">DRONE PILOT</div>
@@ -117,14 +116,7 @@ function generateSignatureHtml(
       <div style="color:#64748b;font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;line-height:1.2;">Hours</div>
     </td>
   </tr>
-  <tr>
-    <td colspan="3" style="background:#f8fafc;padding:5px 12px 7px;text-align:center;border-top:1px solid #e2e8f0;">
-      <span style="color:#94a3b8;font-size:8px;letter-spacing:0.3px;">Powered by </span>
-      <span style="color:${accentColor};font-size:8px;font-weight:600;letter-spacing:0.3px;">opendronelog.com</span>
-    </td>
-  </tr>
-</table>
-</a>`;
+</table>`;
 }
 
 export function EmailSignatureModal({
@@ -320,7 +312,7 @@ export function EmailSignatureModal({
 
       // "Powered by " + "opendronelog.com"
       const pb = 'Powered by ';
-      const site = 'opendronelog.com';
+      const site = 'De Hangar';
       ctx.font = '400 8px Arial, Helvetica, sans-serif';
       const pbW = ctx.measureText(pb).width;
       ctx.font = '600 8px Arial, Helvetica, sans-serif';
@@ -446,7 +438,7 @@ export function EmailSignatureModal({
           >
             {/* The actual badge to capture for PNG — inline-block for tight fit */}
             <div ref={previewRef} style={{ display: 'inline-block', lineHeight: 0 }}>
-              <a href="https://opendronelog.com" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'inline-block' }}>
+              <div style={{ display: 'inline-block' }}>
                 <table cellPadding={0} cellSpacing={0} style={{ borderCollapse: 'collapse', fontFamily: 'Arial, Helvetica, sans-serif', borderRadius: 8, overflow: 'hidden' }}>
                   <tbody>
                     <tr>
@@ -459,13 +451,14 @@ export function EmailSignatureModal({
                           {t('signature.flights')}
                         </div>
                       </td>
+
                       {/* Logo + Title cell */}
                       <td style={{ background: `linear-gradient(135deg, ${darkAccent}, ${accentColor})`, padding: '8px 14px', verticalAlign: 'middle' }}>
                         <table cellPadding={0} cellSpacing={0} style={{ borderCollapse: 'collapse' }}>
                           <tbody>
                             <tr>
                               <td style={{ verticalAlign: 'middle', width: 28 }}>
-                                <img src={logoBase64 || logoIcon} alt="Open DroneLog" width={28} height={28} style={{ display: 'block', border: 0 }} />
+                                <img src={logoBase64 || logoIcon} alt="De Hangar" width={28} height={28} style={{ display: 'block', border: 0 }} />
                               </td>
                               <td style={{ verticalAlign: 'middle', paddingLeft: 8 }}>
                                 <div style={{ color: '#ffffff', fontSize: 11, fontWeight: 700, letterSpacing: 0.5, lineHeight: 1.3 }}>
@@ -479,6 +472,7 @@ export function EmailSignatureModal({
                           </tbody>
                         </table>
                       </td>
+
                       {/* Hours stat */}
                       <td style={{ background: '#ffffff', padding: '8px 16px', verticalAlign: 'middle', textAlign: 'center' }}>
                         <div style={{ color: accentColor, fontSize: 18, fontWeight: 800, lineHeight: 1.3 }}>
@@ -489,20 +483,9 @@ export function EmailSignatureModal({
                         </div>
                       </td>
                     </tr>
-                    {/* Powered by row */}
-                    <tr>
-                      <td colSpan={3} style={{ background: '#f8fafc', padding: '5px 12px 7px', textAlign: 'center', borderTop: '1px solid #e2e8f0' }}>
-                        <span style={{ color: '#94a3b8', fontSize: 8, letterSpacing: 0.3 }}>
-                          {t('signature.poweredBy')}{' '}
-                        </span>
-                        <span style={{ color: accentColor, fontSize: 8, fontWeight: 600, letterSpacing: 0.3 }}>
-                          opendronelog.com
-                        </span>
-                      </td>
-                    </tr>
                   </tbody>
                 </table>
-              </a>
+              </div>
             </div>
           </div>
         </div>

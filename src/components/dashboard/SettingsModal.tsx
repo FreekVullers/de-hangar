@@ -1535,7 +1535,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     </a>
 
                     <a
-                      href="https://opendronelog.com"
+                      href="https://dronewithamission.nl"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="group px-3 py-2 rounded-lg border border-gray-700 text-gray-200 bg-drone-dark/60 hover:bg-emerald-500/10 hover:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all text-sm font-medium flex items-center justify-center gap-2 no-underline"
@@ -1547,9 +1547,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     </a>
 
                     <a
-                      href="https://opendronelog.com/#about"
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href="mailto:info@dronewithamission.nl?subject=De%20Hangar%20Support"
                       className="group px-3 py-2 rounded-lg border border-gray-700 text-gray-200 bg-drone-dark/60 hover:bg-sky-500/10 hover:border-sky-500/50 focus:outline-none focus:ring-2 focus:ring-sky-500/40 transition-all text-sm font-medium flex items-center justify-center gap-2 no-underline"
                     >
                       <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-sky-500/15 text-sky-400 group-hover:bg-sky-500/20 transition-colors">
