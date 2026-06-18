@@ -9,7 +9,7 @@
     use crate::database::{self, Database, DatabaseError};
     use crate::models::{
         BatteryHealthPoint, BatteryUsage, Flight, FlightDataResponse, FlightDateCount, FlightTag,
-        ImportResult, OverviewStats, TelemetryData, TopDistanceFlight, TopFlight, DroneUsage,
+        ImportResult, OverviewStats, TelemetryData, TopDistanceFlight, TopFlight, DroneUsage, Operation,
     };
     use crate::parser::LogParser;
     use crate::api::DjiApi;
@@ -1730,7 +1730,7 @@
                 clear_sync_blacklist,
                 get_flights,
                 get_operations,
-                create_operations,
+                create_operation,
                 get_flight_data,
                 get_overview_stats,
                 get_battery_full_capacity_history,

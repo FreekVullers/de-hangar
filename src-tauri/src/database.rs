@@ -15,7 +15,7 @@ use chrono::{Duration, NaiveDate, Utc};
 use duckdb::{params, Connection, OptionalExt, Result as DuckResult};
 use thiserror::Error;
 
-use crate::models::{BatteryHealthPoint, BatteryUsage, DroneUsage, Flight, FlightDateCount, FlightMessage, FlightMetadata, FlightTag, OverviewStats, TelemetryPoint, TelemetryRecord, TopDistanceFlight, TopFlight};
+use crate::models::{BatteryHealthPoint, BatteryUsage, DroneUsage, Flight, Operation, FlightDateCount, FlightMessage, FlightMetadata, FlightTag, OverviewStats, TelemetryPoint, TelemetryRecord, TopDistanceFlight, TopFlight};
 
 #[derive(Error, Debug)]
 pub enum DatabaseError {
@@ -1306,44 +1306,76 @@ impl Database {
     }
 
     /// Get all operations
-pub fn get_all_operations(&self) -> Result<Vec<Operation>, DatabaseError> {
-    let conn = self.conn.lock().unwrap();
+    pub fn get_all_operations(&self) -> Result<Vec<Operation>, DatabaseError> {
+        let conn = self.conn.lock().unwrap();
 
-    let mut stmt = conn.prepare(
-        r#"
-        SELECT
-            id,
-            project_id,
-            name,
-            purpose,
-            CAST(start_time AS VARCHAR) AS start_time,
-            CAST(end_time AS VARCHAR) AS end_time,
-            total_duration_secs,
-            notes_defects,
-            notes_incidents
-        FROM operations
-        ORDER BY start_time DESC
-        "#,
-    )?;
+        let mut stmt = conn.prepare(
+            r#"
+            SELECT
+                id,
+                project_id,
+                name,
+                purpose,
+                CAST(start_time AS VARCHAR) AS start_time,
+                CAST(end_time AS VARCHAR) AS end_time,
+                total_duration_secs,
+                notes_defects,
+                notes_incidents
+            FROM operations
+            ORDER BY start_time DESC
+            "#,
+        )?;
 
-    let operations: Vec<Operation> = stmt
-        .query_map([], |row| {
-            Ok(Operation {
-                id: row.get(0)?,
-                project_id: row.get(1)?,
-                name: row.get(2)?,
-                purpose: row.get(3)?,
-                start_time: row.get(4)?,
-                end_time: row.get(5)?,
-                total_duration_secs: row.get(6)?,
-                notes_defects: row.get(7)?,
-                notes_incidents: row.get(8)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+        let operations: Vec<Operation> = stmt
+            .query_map([], |row| {
+                Ok(Operation {
+                    id: row.get(0)?,
+                    project_id: row.get(1)?,
+                    name: row.get(2)?,
+                    purpose: row.get(3)?,
+                    start_time: row.get(4)?,
+                    end_time: row.get(5)?,
+                    total_duration_secs: row.get(6)?,
+                    notes_defects: row.get(7)?,
+                    notes_incidents: row.get(8)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
-    Ok(operations)
-}
+        Ok(operations)
+    }
+
+    /// Create a new operation
+    pub fn create_operation(
+        &self,
+        project_id: Option<i64>,
+        name: &str,
+        purpose: Option<&str>,
+    ) -> Result<i64, DatabaseError> {
+        let conn = self.conn.lock().unwrap();
+
+        let id = chrono::Utc::now().timestamp_millis();
+
+        conn.execute(
+            r#"
+            INSERT INTO operations (
+                id,
+                project_id,
+                name,
+                purpose
+            )
+            VALUES (?1, ?2, ?3, ?4)
+            "#,
+            params![
+                id,
+                project_id,
+                name,
+                purpose,
+            ],
+        )?;
+
+        Ok(id)
+    }
 
     /// Get flight telemetry with automatic downsampling for large datasets.
     ///
