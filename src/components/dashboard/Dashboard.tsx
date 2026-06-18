@@ -22,6 +22,7 @@ import { Overview } from './Overview';
 import { ProfileSelector } from './ProfileSelector';
 import { isWebMode } from '@/lib/api';
 import { useIsMobileRuntime } from '@/hooks/platform/useIsMobileRuntime';
+import { invoke } from '@tauri-apps/api/core';
 
 export function Dashboard() {
   const isMobileRuntime = useIsMobileRuntime();
@@ -43,7 +44,8 @@ export function Dashboard() {
   const { t } = useTranslation();
   const [showSettings, setShowSettings] = useState(false);
   const [showMessagesModal, setShowMessagesModal] = useState(false);
-  const [activeView, setActiveView] = useState<'flights' | 'overview'>('overview');
+  const [activeView, setActiveView] = useState<'flights' | 'overview' | 'flightManagement'>('overview');
+  const [operations, setOperations] = useState<any[]>([]);
   const [topSidebarFlightId, setTopSidebarFlightId] = useState<number | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     if (typeof localStorage !== 'undefined') {
@@ -245,6 +247,21 @@ export function Dashboard() {
     }
   }, [activeView, loadOverview]);
 
+  const loadOperations = async () => {
+    try {
+      const result = await invoke<any[]>('get_operations');
+      setOperations(result);
+    } catch (error) {
+      console.error('Failed to load operations:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (activeView === 'flightManagement') {
+      loadOperations();
+    }
+  }, [activeView]);
+
   const appIcon = new URL('../../assets/icon.png', import.meta.url).href;
   const isImporterBusy = isImporting || isBatchProcessing || isImporterExternallyBusy;
   const sidebarMinHeight = 620
@@ -352,19 +369,20 @@ export function Dashboard() {
                     useFlightStore.getState().selectFlight(topSidebarFlightId);
                   }
                   setActiveView('flights');
-                  // Clear highlighted flight when switching to flights view
                   useFlightStore.getState().setOverviewHighlightedFlightId(null);
                   if (typeof window !== 'undefined' && window.innerWidth < 768) {
                     setIsSidebarHidden(true);
                   }
                 }}
-                className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${activeView === 'flights'
-                  ? 'bg-drone-primary/20 border-drone-primary text-white'
-                  : 'border-gray-700 text-gray-400 hover:text-white'
-                  }`}
+                className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${
+                  activeView === 'flights'
+                    ? 'bg-drone-primary/20 border-drone-primary text-white'
+                    : 'border-gray-700 text-gray-400 hover:text-white'
+                }`}
               >
                 {t('dashboard.individual')}
               </button>
+
               <button
                 onClick={() => {
                   setActiveView('overview');
@@ -372,12 +390,29 @@ export function Dashboard() {
                     setIsSidebarHidden(true);
                   }
                 }}
-                className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${activeView === 'overview'
-                  ? 'bg-drone-primary/20 border-drone-primary text-white'
-                  : 'border-gray-700 text-gray-400 hover:text-white'
-                  }`}
+                className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${
+                  activeView === 'overview'
+                    ? 'bg-drone-primary/20 border-drone-primary text-white'
+                    : 'border-gray-700 text-gray-400 hover:text-white'
+                }`}
               >
                 {t('dashboard.overview')}
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveView('flightManagement');
+                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                    setIsSidebarHidden(true);
+                  }
+                }}
+                className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${
+                  activeView === 'flightManagement'
+                    ? 'bg-drone-primary/20 border-drone-primary text-white'
+                    : 'border-gray-700 text-gray-400 hover:text-white'
+                }`}
+              >
+                Vluchtbeheer
               </button>
               <ProfileSelector />
             </div>
@@ -497,7 +532,7 @@ export function Dashboard() {
           {/* Flight List */}
           <div className="flex-1 min-h-0 flex flex-col">
             <FlightList
-              activeView={activeView}
+              activeView={activeView === 'flights' ? 'flights' : 'overview'}
               onTopFlightChange={setTopSidebarFlightId}
               onFiltersExpanded={() => setIsImporterCollapsed(true)}
               onSelectFlight={(flightId) => {
@@ -620,6 +655,56 @@ export function Dashboard() {
                 style={{ border: '4px solid #38bdf8', borderTopColor: 'transparent' }}
               />
               <p className="text-sm" style={{ color: '#64748b' }}>{t('dashboard.loadingFlightData')}</p>
+            </div>
+          </div>
+        ) : activeView === 'flightManagement' ? (
+          <div className="w-full h-full overflow-auto p-6">
+            <div className="max-w-6xl mx-auto">
+              <h2 className="text-2xl font-bold text-white mb-2">Vluchtbeheer</h2>
+              <p className="text-gray-400 mb-6">
+                Beheer operaties, gekoppelde vluchtlogs, documenten en opmerkingen.
+              </p>
+
+              <div className="rounded-xl border border-gray-700 bg-drone-dark/60 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-white">Operaties</h3>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await invoke('create_operation', {
+                          projectId: null,
+                          name: `Operatie ${new Date().toLocaleDateString('nl-NL')}`,
+                          purpose: '3D-mapping',
+                        });
+
+                        await loadOperations();
+                      } catch (error) {
+                        console.error('Failed to create operation:', error);
+                      }
+                    }}
+                    className="px-3 py-2 rounded-lg bg-drone-primary/20 border border-drone-primary text-white text-sm hover:bg-drone-primary/30 transition-colors"
+                  >
+                    Nieuwe operatie
+                  </button>
+                </div>
+
+                <p className="text-gray-500 text-sm">
+                  {operations.length} operaties gevonden
+                </p>
+
+                <div className="mt-4 space-y-2">
+                  {operations.map((operation: any) => (
+                    <div
+                      key={operation.id}
+                      className="rounded-lg border border-gray-700 px-3 py-2 text-sm text-white"
+                    >
+                      {operation.name}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         ) : activeView === 'overview' ? (
