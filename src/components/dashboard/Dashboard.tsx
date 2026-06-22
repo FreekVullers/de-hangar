@@ -44,8 +44,10 @@ export function Dashboard() {
   const { t } = useTranslation();
   const [showSettings, setShowSettings] = useState(false);
   const [showMessagesModal, setShowMessagesModal] = useState(false);
+  const [showFlightPicker, setShowFlightPicker] = useState(false);
   const [activeView, setActiveView] = useState<'flights' | 'overview' | 'flightManagement'>('overview');
   const [operations, setOperations] = useState<any[]>([]);
+  const [operationFlights, setOperationFlights] = useState<any[]>([]);
   const [selectedOperationId, setSelectedOperationId] = useState<number | null>(null);
   const [topSidebarFlightId, setTopSidebarFlightId] = useState<number | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -256,6 +258,18 @@ export function Dashboard() {
       console.error('Failed to load operations:', error);
     }
   };
+
+  const loadOperationFlights = async (operationId: number) => {
+  try {
+    const result = await invoke<any[]>('get_operation_flights', {
+      operationId,
+    });
+
+    setOperationFlights(result);
+  } catch (error) {
+    console.error('Failed to load operation flights:', error);
+  }
+};
 
   useEffect(() => {
     if (activeView === 'flightManagement') {
@@ -699,7 +713,10 @@ export function Dashboard() {
                   {operations.map((operation: any) => (
                     <div
                       key={operation.id}
-                      onClick={() => setSelectedOperationId(operation.id)}
+                      onClick={() => {
+                        setSelectedOperationId(operation.id);
+                        loadOperationFlights(operation.id);
+                      }}
                       className={`rounded-lg border px-3 py-2 text-sm cursor-pointer transition-colors ${
                         selectedOperationId === operation.id
                           ? 'border-drone-primary bg-drone-primary/10 text-white'
@@ -715,9 +732,85 @@ export function Dashboard() {
                         Operatie details
                       </h4>
 
-                      <p className="text-gray-400 text-sm">
+                      <p className="text-gray-400 text-sm mb-4">
                         Operatie ID: {selectedOperationId}
                       </p>
+
+                      <h5 className="text-white font-medium mb-2">
+                        Gekoppelde vluchtlogs
+                      </h5>
+
+                      {operationFlights.length === 0 ? (
+                        <div>
+                          <p className="text-gray-500 text-sm mb-3">
+                            Nog geen vluchtlogs gekoppeld
+                          </p>
+
+                          <button
+                            type="button"
+                            onClick={() => setShowFlightPicker((value) => !value)}
+                            className="px-3 py-2 rounded-lg border border-drone-primary text-white text-sm hover:bg-drone-primary/10"
+                          >
+                            + Vluchtlog koppelen
+                          </button>
+
+                          {showFlightPicker && (
+                            <div className="mt-4 max-h-80 overflow-auto rounded-lg border border-gray-700">
+                              {flights
+                                .filter(
+                                  (flight: any) =>
+                                    !operationFlights.some((linked: any) => linked.id === flight.id)
+                                )
+                                .slice(0, 50)
+                                .map((flight: any) => (
+                                  <button
+                                    key={flight.id}
+                                    type="button"
+                                    onClick={async () => {
+                                      if (!selectedOperationId) return;
+
+                                      try {
+                                        await invoke('add_flight_to_operation', {
+                                          operationId: selectedOperationId,
+                                          flightId: flight.id,
+                                        });
+
+                                        await loadOperationFlights(selectedOperationId);
+                                        setShowFlightPicker(false);
+                                      } catch (error) {
+                                        alert(String(error));
+                                      }
+                                    }}
+                                    className="w-full text-left px-3 py-2 border-b border-gray-800 hover:bg-white/5 text-sm"
+                                  >
+                                    <div className="text-white font-medium">
+                                      {flight.displayName}
+                                    </div>
+
+                                    <div className="text-gray-400 text-xs">
+                                      {flight.startTime ?? 'Geen tijd'} ·{' '}
+                                      {flight.homeLat && flight.homeLon
+                                        ? `${flight.homeLat.toFixed(5)}, ${flight.homeLon.toFixed(5)}`
+                                        : 'Geen locatie'}{' '}
+                                      · {flight.droneModel ?? 'Onbekende drone'}
+                                    </div>
+                                  </button>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {operationFlights.map((flight: any) => (
+                            <div
+                              key={flight.id}
+                              className="rounded border border-gray-700 px-3 py-2 text-sm text-white"
+                            >
+                              {flight.displayName}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

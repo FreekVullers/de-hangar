@@ -290,7 +290,7 @@ impl Database {
             -- ============================================================
             CREATE TABLE IF NOT EXISTS operation_flights (
                 operation_id     BIGINT NOT NULL,
-                flight_id        BIGINT NOT NULL,
+                flight_id        BIGINT NOT NULL UNIQUE,
                 sort_order       INTEGER DEFAULT 0,
                 PRIMARY KEY (operation_id, flight_id),
                 FOREIGN KEY (operation_id) REFERENCES operations(id),
@@ -1398,7 +1398,7 @@ impl Database {
 
         conn.execute(
             r#"
-            INSERT OR IGNORE INTO operation_flights (
+            INSERT INTO operation_flights (
                 operation_id,
                 flight_id,
                 sort_order

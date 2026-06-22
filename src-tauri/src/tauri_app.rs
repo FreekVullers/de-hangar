@@ -633,11 +633,21 @@
         flight_id: i64,
         state: State<'_, AppState>,
     ) -> Result<bool, String> {
-        state
+        match state
             .db_authenticated()?
             .add_flight_to_operation(operation_id, flight_id)
-            .map(|_| true)
-            .map_err(|e| format!("Failed to link flight to operation: {}", e))
+        {
+            Ok(_) => Ok(true),
+            Err(e) => {
+                let msg = e.to_string();
+
+                if msg.contains("UNIQUE") || msg.contains("constraint") {
+                    Err("Deze vluchtlog is al gekoppeld aan een andere operatie.".to_string())
+                } else {
+                    Err(format!("Failed to link flight to operation: {}", msg))
+                }
+            }
+        }
     }
 
     /// Get all flight logs linked to an operation
