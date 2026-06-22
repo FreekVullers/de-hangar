@@ -20,7 +20,7 @@ import { FlightMap } from '@/components/map/FlightMap';
 import { FlightMessagesModal } from './FlightMessagesModal';
 import { Overview } from './Overview';
 import { ProfileSelector } from './ProfileSelector';
-import { isWebMode } from '@/lib/api';
+import { isWebMode, getEquipmentNames } from '@/lib/api';
 import { useIsMobileRuntime } from '@/hooks/platform/useIsMobileRuntime';
 import { invoke } from '@tauri-apps/api/core';
 
@@ -46,9 +46,13 @@ export function Dashboard() {
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [showFlightPicker, setShowFlightPicker] = useState(false);
   const [flightPickerSearch, setFlightPickerSearch] = useState('');
+  const [flightPickerAircraft, setFlightPickerAircraft] = useState('');
+  const [flightPickerDate, setFlightPickerDate] = useState('');
+  const [flightPickerLocation, setFlightPickerLocation] = useState('');
   const [activeView, setActiveView] = useState<'flights' | 'overview' | 'flightManagement'>('overview');
   const [operations, setOperations] = useState<any[]>([]);
   const [operationFlights, setOperationFlights] = useState<any[]>([]);
+  const [aircraftNameMap, setAircraftNameMap] = useState<Record<string, string>>({});
   const [selectedOperationId, setSelectedOperationId] = useState<number | null>(null);
   const [topSidebarFlightId, setTopSidebarFlightId] = useState<number | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -261,22 +265,48 @@ export function Dashboard() {
   };
 
   const loadOperationFlights = async (operationId: number) => {
-  try {
-    const result = await invoke<any[]>('get_operation_flights', {
-      operationId,
-    });
+    try {
+      const result = await invoke<any[]>('get_operation_flights', {
+        operationId,
+      });
 
-    setOperationFlights(result);
-  } catch (error) {
-    console.error('Failed to load operation flights:', error);
-  }
-};
+      setOperationFlights(result);
+    } catch (error) {
+      console.error('Failed to load operation flights:', error);
+    }
+  };
 
   useEffect(() => {
     if (activeView === 'flightManagement') {
       loadOperations();
     }
   }, [activeView]);
+
+  useEffect(() => {
+    getEquipmentNames()
+      .then((names) => setAircraftNameMap(names.aircraft_names))
+      .catch((error) => console.error('Failed to load equipment names:', error));
+  }, []);
+
+  const aircraftOptions = Array.from(
+    new Set(
+      flights
+        .map((flight: any) =>
+          aircraftNameMap[flight.droneSerial] ??
+          flight.aircraftName ??
+          flight.droneModel
+        )
+        .filter(Boolean)
+    )
+  ).sort();
+
+  const locationOptions = Array.from(
+    new Set(
+      flights
+        .map((flight: any) => flight.locationName ?? flight.homeLocationName)
+        .filter(Boolean)
+    )
+  ).sort();
 
   const appIcon = new URL('../../assets/icon.png', import.meta.url).href;
   const isImporterBusy = isImporting || isBatchProcessing || isImporterExternallyBusy;
@@ -760,14 +790,56 @@ export function Dashboard() {
                               <input
                                 value={flightPickerSearch}
                                 onChange={(event) => setFlightPickerSearch(event.target.value)}
-                                placeholder="Zoeken op naam, drone of datum..."
+                                placeholder="Zoeken op naam..."
                                 className="w-full mb-3 rounded border border-gray-700 bg-transparent px-3 py-2 text-sm text-white placeholder:text-gray-500"
                               />
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                                <select
+                                  value={flightPickerAircraft}
+                                  onChange={(event) => setFlightPickerAircraft(event.target.value)}
+                                  className="rounded border border-gray-700 bg-drone-dark px-3 py-2 text-sm text-white"
+                                >
+                                  <option value="">Alle toestellen</option>
+                                  {aircraftOptions.map((aircraft: any) => (
+                                    <option key={aircraft} value={aircraft}>
+                                      {aircraft}
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <input
+                                  type="date"
+                                  value={flightPickerDate}
+                                  onChange={(event) => setFlightPickerDate(event.target.value)}
+                                  className="rounded border border-gray-700 bg-drone-dark px-3 py-2 text-sm text-white"
+                                />
+
+                                <input
+                                  value={flightPickerLocation}
+                                  onChange={(event) => setFlightPickerLocation(event.target.value)}
+                                  placeholder="Zoek/kies plaatsnaam..."
+                                  list="flight-location-options"
+                                  className="rounded border border-gray-700 bg-drone-dark px-3 py-2 text-sm text-white placeholder:text-gray-500"
+                                />
+
+                                <datalist id="flight-location-options">
+                                  {locationOptions.map((location: any) => (
+                                    <option key={location} value={location} />
+                                  ))}
+                                </datalist>
+                              </div>
 
                               <div className="max-h-80 overflow-auto">
                                 {flights
                                   .filter((flight: any) => {
                                     const search = flightPickerSearch.toLowerCase();
+                                    const aircraft =
+                                      aircraftNameMap[flight.droneSerial] ??
+                                      flight.aircraftName ??
+                                      flight.droneModel ??
+                                      '';
+                                    const location = flight.locationName ?? flight.homeLocationName ?? '';
 
                                     const matchesSearch = [
                                       flight.displayName,
@@ -777,15 +849,32 @@ export function Dashboard() {
                                       flight.startTime,
                                       flight.homeLat?.toString(),
                                       flight.homeLon?.toString(),
+                                      location,
                                     ]
                                       .filter(Boolean)
                                       .some((value) => String(value).toLowerCase().includes(search));
+
+                                    const matchesAircraft =
+                                      !flightPickerAircraft || aircraft === flightPickerAircraft;
+
+                                    const matchesDate =
+                                      !flightPickerDate || flight.startTime?.startsWith(flightPickerDate);
+
+                                    const matchesLocation =
+                                      !flightPickerLocation ||
+                                      location.toLowerCase().includes(flightPickerLocation.toLowerCase());
 
                                     const isNotLinkedToCurrentOperation = !operationFlights.some(
                                       (linked: any) => linked.id === flight.id
                                     );
 
-                                    return isNotLinkedToCurrentOperation && matchesSearch;
+                                    return (
+                                      isNotLinkedToCurrentOperation &&
+                                      matchesSearch &&
+                                      matchesAircraft &&
+                                      matchesDate &&
+                                      matchesLocation
+                                    );
                                   })
                                   .slice(0, 100)
                                   .map((flight: any) => (
