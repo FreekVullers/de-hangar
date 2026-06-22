@@ -626,6 +626,32 @@
         Ok(operation_id)
     }
 
+    /// Link an imported flight log to an operation
+    #[tauri::command]
+    pub async fn add_flight_to_operation(
+        operation_id: i64,
+        flight_id: i64,
+        state: State<'_, AppState>,
+    ) -> Result<bool, String> {
+        state
+            .db_authenticated()?
+            .add_flight_to_operation(operation_id, flight_id)
+            .map(|_| true)
+            .map_err(|e| format!("Failed to link flight to operation: {}", e))
+    }
+
+    /// Get all flight logs linked to an operation
+    #[tauri::command]
+    pub async fn get_operation_flights(
+        operation_id: i64,
+        state: State<'_, AppState>,
+    ) -> Result<Vec<Flight>, String> {
+        state
+            .db_authenticated()?
+            .get_operation_flights(operation_id)
+            .map_err(|e| format!("Failed to get operation flights: {}", e))
+    }
+
     #[tauri::command]
     pub async fn get_flight_data(
         flight_id: i64,
@@ -1731,6 +1757,8 @@
                 get_flights,
                 get_operations,
                 create_operation,
+                add_flight_to_operation,
+                get_operation_flights,
                 get_flight_data,
                 get_overview_stats,
                 get_battery_full_capacity_history,

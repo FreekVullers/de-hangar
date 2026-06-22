@@ -1387,6 +1387,93 @@ impl Database {
     ///
     /// `known_point_count` avoids an extra COUNT query when the flight metadata
     /// already provides the point count.
+
+    /// Link an imported flight log to an operation
+    pub fn add_flight_to_operation(
+        &self,
+        operation_id: i64,
+        flight_id: i64,
+    ) -> Result<(), DatabaseError> {
+        let conn = self.conn.lock().unwrap();
+
+        conn.execute(
+            r#"
+            INSERT OR IGNORE INTO operation_flights (
+                operation_id,
+                flight_id,
+                sort_order
+            )
+            VALUES (
+                ?1,
+                ?2,
+                COALESCE(
+                    (SELECT MAX(sort_order) + 1 FROM operation_flights WHERE operation_id = ?1),
+                    0
+                )
+            )
+            "#,
+            params![operation_id, flight_id],
+        )?;
+
+        Ok(())
+    }    
+
+    /// Get all flight logs linked to an operation
+    pub fn get_operation_flights(&self, operation_id: i64) -> Result<Vec<Flight>, DatabaseError> {
+        let conn = self.conn.lock().unwrap();
+
+        let mut stmt = conn.prepare(
+            r#"
+            SELECT 
+                f.id, f.file_name, COALESCE(f.display_name, f.file_name) AS display_name,
+                f.file_hash,
+                f.drone_model, f.drone_serial, f.aircraft_name, f.battery_serial,
+                CAST(f.start_time AS VARCHAR) AS start_time,
+                f.duration_secs, f.total_distance,
+                f.max_altitude, f.max_speed, f.home_lat, f.home_lon, f.point_count,
+                f.photo_count, f.video_count, f.notes, COALESCE(f.color, '#7dd3fc') AS color,
+                f.cycle_count, f.rc_serial, f.battery_life
+            FROM operation_flights ofl
+            INNER JOIN flights f ON f.id = ofl.flight_id
+            WHERE ofl.operation_id = ?1
+            ORDER BY ofl.sort_order ASC, f.start_time ASC
+            "#,
+        )?;
+
+        let flights: Vec<Flight> = stmt
+            .query_map(params![operation_id], |row| {
+                Ok(Flight {
+                    id: row.get(0)?,
+                    file_name: row.get(1)?,
+                    display_name: row.get(2)?,
+                    file_hash: row.get(3)?,
+                    drone_model: row.get(4)?,
+                    drone_serial: row.get(5)?,
+                    aircraft_name: row.get(6)?,
+                    battery_serial: row.get(7)?,
+                    cycle_count: row.get(20)?,
+                    start_time: row.get(8)?,
+                    duration_secs: row.get(9)?,
+                    total_distance: row.get(10)?,
+                    max_altitude: row.get(11)?,
+                    max_speed: row.get(12)?,
+                    home_lat: row.get(13)?,
+                    home_lon: row.get(14)?,
+                    point_count: row.get(15)?,
+                    photo_count: row.get(16)?,
+                    video_count: row.get(17)?,
+                    tags: Vec::new(),
+                    notes: row.get(18)?,
+                    color: row.get(19)?,
+                    rc_serial: row.get(21)?,
+                    battery_life: row.get(22)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(flights)
+    }
+
     pub fn get_flight_telemetry(
         &self,
         flight_id: i64,
