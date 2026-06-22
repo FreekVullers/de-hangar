@@ -46,6 +46,7 @@ export function Dashboard() {
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [activeView, setActiveView] = useState<'flights' | 'overview' | 'flightManagement'>('overview');
   const [operations, setOperations] = useState<any[]>([]);
+  const [selectedOperationId, setSelectedOperationId] = useState<number | null>(null);
   const [topSidebarFlightId, setTopSidebarFlightId] = useState<number | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     if (typeof localStorage !== 'undefined') {
@@ -698,11 +699,27 @@ export function Dashboard() {
                   {operations.map((operation: any) => (
                     <div
                       key={operation.id}
-                      className="rounded-lg border border-gray-700 px-3 py-2 text-sm text-white"
+                      onClick={() => setSelectedOperationId(operation.id)}
+                      className={`rounded-lg border px-3 py-2 text-sm cursor-pointer transition-colors ${
+                        selectedOperationId === operation.id
+                          ? 'border-drone-primary bg-drone-primary/10 text-white'
+                          : 'border-gray-700 text-white hover:border-gray-500'
+                      }`}
                     >
                       {operation.name}
                     </div>
                   ))}
+                  {selectedOperationId && (
+                    <div className="mt-6 rounded-xl border border-gray-700 p-4">
+                      <h4 className="text-lg font-semibold text-white mb-2">
+                        Operatie details
+                      </h4>
+
+                      <p className="text-gray-400 text-sm">
+                        Operatie ID: {selectedOperationId}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
