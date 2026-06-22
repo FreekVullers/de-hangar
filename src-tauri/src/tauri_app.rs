@@ -650,6 +650,20 @@
         }
     }
 
+    /// Remove an imported flight log from an operation
+    #[tauri::command]
+    pub async fn remove_flight_from_operation(
+        operation_id: i64,
+        flight_id: i64,
+        state: State<'_, AppState>,
+    ) -> Result<bool, String> {
+        state
+            .db_authenticated()?
+            .remove_flight_from_operation(operation_id, flight_id)
+            .map(|_| true)
+            .map_err(|e| format!("Failed to unlink flight from operation: {}", e))
+    }    
+
     /// Get all flight logs linked to an operation
     #[tauri::command]
     pub async fn get_operation_flights(
@@ -1768,6 +1782,7 @@
                 get_operations,
                 create_operation,
                 add_flight_to_operation,
+                remove_flight_from_operation,
                 get_operation_flights,
                 get_flight_data,
                 get_overview_stats,

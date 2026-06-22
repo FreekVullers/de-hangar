@@ -1416,7 +1416,26 @@ impl Database {
         )?;
 
         Ok(())
-    }    
+    }   
+    
+    pub fn remove_flight_from_operation(
+        &self,
+        operation_id: i64,
+        flight_id: i64,
+    ) -> Result<(), DatabaseError> {
+        let conn = self.conn.lock().unwrap();
+
+        conn.execute(
+            r#"
+            DELETE FROM operation_flights
+            WHERE operation_id = ?1
+            AND flight_id = ?2
+            "#,
+            params![operation_id, flight_id],
+        )?;
+
+        Ok(())
+    }
 
     /// Get all flight logs linked to an operation
     pub fn get_operation_flights(&self, operation_id: i64) -> Result<Vec<Flight>, DatabaseError> {

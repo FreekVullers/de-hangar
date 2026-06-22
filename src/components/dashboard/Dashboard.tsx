@@ -804,9 +804,33 @@ export function Dashboard() {
                           {operationFlights.map((flight: any) => (
                             <div
                               key={flight.id}
-                              className="rounded border border-gray-700 px-3 py-2 text-sm text-white"
+                              className="rounded border border-gray-700 px-3 py-2 text-sm flex items-center justify-between"
                             >
-                              {flight.displayName}
+                              <span className="text-white">
+                                {flight.displayName}
+                              </span>
+
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (!selectedOperationId) return;
+
+                                  try {
+                                    await invoke('remove_flight_from_operation', {
+                                      operationId: selectedOperationId,
+                                      flightId: flight.id,
+                                    });
+
+                                    await loadOperationFlights(selectedOperationId);
+                                  } catch (error) {
+                                    alert(String(error));
+                                  }
+                                }}
+                                className="text-red-400 hover:text-red-300"
+                                title="Vluchtlog ontkoppelen"
+                              >
+                                ✕
+                              </button>
                             </div>
                           ))}
                         </div>
