@@ -45,6 +45,7 @@ export function Dashboard() {
   const [showSettings, setShowSettings] = useState(false);
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [showFlightPicker, setShowFlightPicker] = useState(false);
+  const [flightPickerSearch, setFlightPickerSearch] = useState('');
   const [activeView, setActiveView] = useState<'flights' | 'overview' | 'flightManagement'>('overview');
   const [operations, setOperations] = useState<any[]>([]);
   const [operationFlights, setOperationFlights] = useState<any[]>([]);
@@ -755,84 +756,125 @@ export function Dashboard() {
                           </button>
 
                           {showFlightPicker && (
-                            <div className="mt-4 max-h-80 overflow-auto rounded-lg border border-gray-700">
-                              {flights
-                                .filter(
-                                  (flight: any) =>
-                                    !operationFlights.some((linked: any) => linked.id === flight.id)
-                                )
-                                .slice(0, 50)
-                                .map((flight: any) => (
-                                  <button
-                                    key={flight.id}
-                                    type="button"
-                                    onClick={async () => {
-                                      if (!selectedOperationId) return;
+                            <div className="mt-4 rounded-lg border border-gray-700 p-3">
+                              <input
+                                value={flightPickerSearch}
+                                onChange={(event) => setFlightPickerSearch(event.target.value)}
+                                placeholder="Zoeken op naam, drone of datum..."
+                                className="w-full mb-3 rounded border border-gray-700 bg-transparent px-3 py-2 text-sm text-white placeholder:text-gray-500"
+                              />
 
-                                      try {
-                                        await invoke('add_flight_to_operation', {
-                                          operationId: selectedOperationId,
-                                          flightId: flight.id,
-                                        });
+                              <div className="max-h-80 overflow-auto">
+                                {flights
+                                  .filter((flight: any) => {
+                                    const search = flightPickerSearch.toLowerCase();
 
-                                        await loadOperationFlights(selectedOperationId);
-                                        setShowFlightPicker(false);
-                                      } catch (error) {
-                                        alert(String(error));
-                                      }
-                                    }}
-                                    className="w-full text-left px-3 py-2 border-b border-gray-800 hover:bg-white/5 text-sm"
-                                  >
-                                    <div className="text-white font-medium">
-                                      {flight.displayName}
-                                    </div>
+                                    const matchesSearch = [
+                                      flight.displayName,
+                                      flight.fileName,
+                                      flight.aircraftName,
+                                      flight.droneModel,
+                                      flight.startTime,
+                                      flight.homeLat?.toString(),
+                                      flight.homeLon?.toString(),
+                                    ]
+                                      .filter(Boolean)
+                                      .some((value) => String(value).toLowerCase().includes(search));
 
-                                    <div className="text-gray-400 text-xs">
-                                      {flight.startTime ?? 'Geen tijd'} ·{' '}
-                                      {flight.homeLat && flight.homeLon
-                                        ? `${flight.homeLat.toFixed(5)}, ${flight.homeLon.toFixed(5)}`
-                                        : 'Geen locatie'}{' '}
-                                      · {flight.droneModel ?? 'Onbekende drone'}
-                                    </div>
-                                  </button>
-                                ))}
+                                    const isNotLinkedToCurrentOperation = !operationFlights.some(
+                                      (linked: any) => linked.id === flight.id
+                                    );
+
+                                    return isNotLinkedToCurrentOperation && matchesSearch;
+                                  })
+                                  .slice(0, 100)
+                                  .map((flight: any) => (
+                                    <button
+                                      key={flight.id}
+                                      type="button"
+                                      onClick={async () => {
+                                        if (!selectedOperationId) return;
+
+                                        try {
+                                          await invoke('add_flight_to_operation', {
+                                            operationId: selectedOperationId,
+                                            flightId: flight.id,
+                                          });
+
+                                          await loadOperationFlights(selectedOperationId);
+                                        } catch (error) {
+                                          alert(String(error));
+                                        }
+                                      }}
+                                      className="w-full text-left px-3 py-2 border-b border-gray-800 hover:bg-white/5 text-sm"
+                                    >
+                                      <div className="text-white font-medium">
+                                        {flight.displayName}
+                                      </div>
+
+                                      <div className="text-gray-400 text-xs">
+                                        {flight.startTime ?? 'Geen tijd'} ·{' '}
+                                        {flight.homeLat && flight.homeLon
+                                          ? `${flight.homeLat.toFixed(5)}, ${flight.homeLon.toFixed(5)}`
+                                          : 'Geen locatie'}{' '}
+                                        · {flight.aircraftName ?? flight.droneModel ?? 'Onbekende drone'}
+                                      </div>
+                                    </button>
+                                  ))}
+                              </div>
                             </div>
                           )}
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          {operationFlights.map((flight: any) => (
-                            <div
-                              key={flight.id}
-                              className="rounded border border-gray-700 px-3 py-2 text-sm flex items-center justify-between"
-                            >
-                              <span className="text-white">
-                                {flight.displayName}
-                              </span>
+                          {operationFlights.map((flight: any) => {
+                            console.log('OPERATION FLIGHT', flight);
 
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  if (!selectedOperationId) return;
-
-                                  try {
-                                    await invoke('remove_flight_from_operation', {
-                                      operationId: selectedOperationId,
-                                      flightId: flight.id,
-                                    });
-
-                                    await loadOperationFlights(selectedOperationId);
-                                  } catch (error) {
-                                    alert(String(error));
-                                  }
-                                }}
-                                className="text-red-400 hover:text-red-300"
-                                title="Vluchtlog ontkoppelen"
+                            return (
+                              <div
+                                key={flight.id}
+                                className="rounded border border-gray-700 px-3 py-3 text-sm flex items-start justify-between gap-4"
                               >
-                                ✕
-                              </button>
-                            </div>
-                          ))}
+                                <div>
+                                  <div className="text-white font-medium">
+                                    {flight.displayName}
+                                  </div>
+
+                                  <div className="text-gray-400 text-xs mt-1">
+                                    {flight.startTime ?? 'Geen tijd'} · {flight.aircraftName ?? flight.droneModel ?? 'Onbekende drone'} · {Math.round((flight.durationSecs ?? 0) / 60)} min
+                                  </div>
+
+                                  <div className="text-gray-500 text-xs mt-1">
+                                    {flight.homeLat && flight.homeLon
+                                      ? `${flight.homeLat.toFixed(5)}, ${flight.homeLon.toFixed(5)}`
+                                      : 'Geen locatie'} · {Math.round(flight.totalDistance ?? 0)} m · {flight.photoCount ?? 0} foto’s
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!selectedOperationId) return;
+
+                                    try {
+                                      await invoke('remove_flight_from_operation', {
+                                        operationId: selectedOperationId,
+                                        flightId: flight.id,
+                                      });
+
+                                      await loadOperationFlights(selectedOperationId);
+                                    } catch (error) {
+                                      alert(String(error));
+                                    }
+                                  }}
+                                  className="text-red-400 hover:text-red-300"
+                                  title="Vluchtlog ontkoppelen"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
