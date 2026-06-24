@@ -3,7 +3,7 @@
  * Orchestrates the flight list sidebar, charts, and map
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFlightStore } from '@/stores/flightStore';
 import { FlightList } from './FlightList';
@@ -51,6 +51,8 @@ export function Dashboard() {
   const [flightPickerLocation, setFlightPickerLocation] = useState('');
   const [activeView, setActiveView] = useState<'flights' | 'overview' | 'flightManagement'>('overview');
   const [operations, setOperations] = useState<any[]>([]);
+  const flightPickerSearchTimeoutRef = useRef<number | null>(null);
+  const flightPickerLocationTimeoutRef = useRef<number | null>(null);
   const [operationFlights, setOperationFlights] = useState<any[]>([]);
   const [aircraftNameMap, setAircraftNameMap] = useState<Record<string, string>>({});
   const [selectedOperationId, setSelectedOperationId] = useState<number | null>(null);
@@ -288,25 +290,86 @@ export function Dashboard() {
       .catch((error) => console.error('Failed to load equipment names:', error));
   }, []);
 
-  const aircraftOptions = Array.from(
-    new Set(
-      flights
-        .map((flight: any) =>
+  const aircraftOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        flights
+          .map((flight: any) =>
+            aircraftNameMap[flight.droneSerial] ??
+            flight.aircraftName ??
+            flight.droneModel
+          )
+          .filter(Boolean)
+      )
+    ).sort();
+  }, [flights, aircraftNameMap]);
+
+  const locationOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        flights
+          .map((flight: any) => flight.locationName ?? flight.homeLocationName)
+          .filter(Boolean)
+      )
+    ).sort();
+  }, [flights]);
+
+  const linkedFlightIds = useMemo(() => {
+    return new Set(operationFlights.map((flight: any) => flight.id));
+  }, [operationFlights]);
+
+  const filteredPickerFlights = useMemo(() => {
+    const search = flightPickerSearch.toLowerCase();
+    const locationSearch = flightPickerLocation.toLowerCase();
+
+    return flights
+      .filter((flight: any) => {
+        if (linkedFlightIds.has(flight.id)) return false;
+
+        const aircraft =
           aircraftNameMap[flight.droneSerial] ??
           flight.aircraftName ??
-          flight.droneModel
-        )
-        .filter(Boolean)
-    )
-  ).sort();
+          flight.droneModel ??
+          '';
 
-  const locationOptions = Array.from(
-    new Set(
-      flights
-        .map((flight: any) => flight.locationName ?? flight.homeLocationName)
-        .filter(Boolean)
-    )
-  ).sort();
+        const location = flight.locationName ?? flight.homeLocationName ?? '';
+
+        const matchesSearch = [
+          flight.displayName,
+          flight.fileName,
+          aircraft,
+          flight.aircraftName,
+          flight.droneModel,
+          flight.startTime,
+          flight.homeLat?.toString(),
+          flight.homeLon?.toString(),
+          location,
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(search));
+
+        const matchesAircraft =
+          !flightPickerAircraft || aircraft === flightPickerAircraft;
+
+        const matchesDate =
+          !flightPickerDate || flight.startTime?.startsWith(flightPickerDate);
+
+        const matchesLocation =
+          !flightPickerLocation ||
+          location.toLowerCase().includes(locationSearch);
+
+        return matchesSearch && matchesAircraft && matchesDate && matchesLocation;
+      })
+      .slice(0, 100);
+  }, [
+    flights,
+    linkedFlightIds,
+    aircraftNameMap,
+    flightPickerSearch,
+    flightPickerAircraft,
+    flightPickerDate,
+    flightPickerLocation,
+  ]);
 
   const appIcon = new URL('../../assets/icon.png', import.meta.url).href;
   const isImporterBusy = isImporting || isBatchProcessing || isImporterExternallyBusy;
@@ -788,8 +851,18 @@ export function Dashboard() {
                           {showFlightPicker && (
                             <div className="mt-4 rounded-lg border border-gray-700 p-3">
                               <input
-                                value={flightPickerSearch}
-                                onChange={(event) => setFlightPickerSearch(event.target.value)}
+                                defaultValue={flightPickerSearch}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+
+                                  if (flightPickerSearchTimeoutRef.current) {
+                                    window.clearTimeout(flightPickerSearchTimeoutRef.current);
+                                  }
+
+                                  flightPickerSearchTimeoutRef.current = window.setTimeout(() => {
+                                    setFlightPickerSearch(value);
+                                  }, 250);
+                                }}
                                 placeholder="Zoeken op naam..."
                                 className="w-full mb-3 rounded border border-gray-700 bg-transparent px-3 py-2 text-sm text-white placeholder:text-gray-500"
                               />
@@ -816,8 +889,18 @@ export function Dashboard() {
                                 />
 
                                 <input
-                                  value={flightPickerLocation}
-                                  onChange={(event) => setFlightPickerLocation(event.target.value)}
+                                  defaultValue={flightPickerLocation}
+                                  onChange={(event) => {
+                                    const value = event.target.value;
+
+                                    if (flightPickerLocationTimeoutRef.current) {
+                                      window.clearTimeout(flightPickerLocationTimeoutRef.current);
+                                    }
+
+                                    flightPickerLocationTimeoutRef.current = window.setTimeout(() => {
+                                      setFlightPickerLocation(value);
+                                    }, 250);
+                                  }}
                                   placeholder="Zoek/kies plaatsnaam..."
                                   list="flight-location-options"
                                   className="rounded border border-gray-700 bg-drone-dark px-3 py-2 text-sm text-white placeholder:text-gray-500"
@@ -831,53 +914,7 @@ export function Dashboard() {
                               </div>
 
                               <div className="max-h-80 overflow-auto">
-                                {flights
-                                  .filter((flight: any) => {
-                                    const search = flightPickerSearch.toLowerCase();
-                                    const aircraft =
-                                      aircraftNameMap[flight.droneSerial] ??
-                                      flight.aircraftName ??
-                                      flight.droneModel ??
-                                      '';
-                                    const location = flight.locationName ?? flight.homeLocationName ?? '';
-
-                                    const matchesSearch = [
-                                      flight.displayName,
-                                      flight.fileName,
-                                      flight.aircraftName,
-                                      flight.droneModel,
-                                      flight.startTime,
-                                      flight.homeLat?.toString(),
-                                      flight.homeLon?.toString(),
-                                      location,
-                                    ]
-                                      .filter(Boolean)
-                                      .some((value) => String(value).toLowerCase().includes(search));
-
-                                    const matchesAircraft =
-                                      !flightPickerAircraft || aircraft === flightPickerAircraft;
-
-                                    const matchesDate =
-                                      !flightPickerDate || flight.startTime?.startsWith(flightPickerDate);
-
-                                    const matchesLocation =
-                                      !flightPickerLocation ||
-                                      location.toLowerCase().includes(flightPickerLocation.toLowerCase());
-
-                                    const isNotLinkedToCurrentOperation = !operationFlights.some(
-                                      (linked: any) => linked.id === flight.id
-                                    );
-
-                                    return (
-                                      isNotLinkedToCurrentOperation &&
-                                      matchesSearch &&
-                                      matchesAircraft &&
-                                      matchesDate &&
-                                      matchesLocation
-                                    );
-                                  })
-                                  .slice(0, 100)
-                                  .map((flight: any) => (
+                                {filteredPickerFlights.map((flight: any) => (
                                     <button
                                       key={flight.id}
                                       type="button"
@@ -903,9 +940,10 @@ export function Dashboard() {
 
                                       <div className="text-gray-400 text-xs">
                                         {flight.startTime ?? 'Geen tijd'} ·{' '}
-                                        {flight.homeLat && flight.homeLon
-                                          ? `${flight.homeLat.toFixed(5)}, ${flight.homeLon.toFixed(5)}`
-                                          : 'Geen locatie'}{' '}
+                                        {flight.homeLocationName ??
+                                          (flight.homeLat && flight.homeLon
+                                            ? `${flight.homeLat.toFixed(5)}, ${flight.homeLon.toFixed(5)}`
+                                            : 'Geen locatie')}{' '}
                                         · {flight.aircraftName ?? flight.droneModel ?? 'Onbekende drone'}
                                       </div>
                                     </button>

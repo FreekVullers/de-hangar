@@ -650,6 +650,16 @@
         }
     }
 
+    #[tauri::command]
+    pub async fn backfill_home_location_names(
+        state: State<'_, AppState>,
+    ) -> Result<usize, String> {
+        state
+            .db_authenticated()?
+            .backfill_home_location_names()
+            .map_err(|e| format!("Failed to backfill home locations: {}", e))
+    }
+
     /// Remove an imported flight log from an operation
     #[tauri::command]
     pub async fn remove_flight_from_operation(
@@ -1783,6 +1793,7 @@
                 create_operation,
                 add_flight_to_operation,
                 remove_flight_from_operation,
+                backfill_home_location_names,
                 get_operation_flights,
                 get_flight_data,
                 get_overview_stats,

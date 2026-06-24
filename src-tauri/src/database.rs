@@ -225,6 +225,7 @@ impl Database {
                 max_speed       DOUBLE,                  -- Max speed in m/s
                 home_lat        DOUBLE,
                 home_lon        DOUBLE,
+                home_location_name    VARCHAR,
                 point_count     INTEGER,                 -- Number of telemetry points
                 photo_count     INTEGER,                 -- Number of photos taken
                 video_count     INTEGER,                 -- Number of video recordings
@@ -510,6 +511,7 @@ impl Database {
             ("cycle_count", "ALTER TABLE flights ADD COLUMN cycle_count INTEGER"),
             ("rc_serial", "ALTER TABLE flights ADD COLUMN rc_serial VARCHAR"),
             ("battery_life", "ALTER TABLE flights ADD COLUMN battery_life INTEGER"),
+            ("home_location_name", "ALTER TABLE flights ADD COLUMN home_location_name VARCHAR"),
         ];
 
         let need_backfill = !columns.contains("photo_count");
@@ -1026,15 +1028,20 @@ impl Database {
     pub fn insert_flight(&self, flight: &FlightMetadata) -> Result<i64, DatabaseError> {
         let conn = self.conn.lock().unwrap();
 
+        let home_location_name = match (flight.home_lat, flight.home_lon) {
+            (Some(lat), Some(lon)) => crate::parser::LogParser::reverse_geocode_place_name(lat, lon),
+            _ => None,
+        };
+
         conn.execute(
             r#"
             INSERT INTO flights (
                 id, file_name, display_name, file_hash, drone_model, drone_serial,
                 aircraft_name, battery_serial, cycle_count,
                 start_time, end_time, duration_secs, total_distance,
-                max_altitude, max_speed, home_lat, home_lon, point_count,
+                max_altitude, max_speed, home_lat, home_lon, home_location_name, point_count,
                 photo_count, video_count, rc_serial, battery_life
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
             params![
                 flight.id,
@@ -1054,6 +1061,7 @@ impl Database {
                 flight.max_speed,
                 flight.home_lat,
                 flight.home_lon,
+                home_location_name,
                 flight.point_count,
                 flight.photo_count,
                 flight.video_count,
@@ -1064,6 +1072,50 @@ impl Database {
 
         log::info!("Inserted flight with ID: {}", flight.id);
         Ok(flight.id)
+    }
+
+    /// Backfill missing home location names for existing flights
+    pub fn backfill_home_location_names(&self) -> Result<usize, DatabaseError> {
+        let conn = self.conn.lock().unwrap();
+
+        let mut stmt = conn.prepare(
+            r#"
+            SELECT id, home_lat, home_lon
+            FROM flights
+            WHERE home_location_name IS NULL
+            AND home_lat IS NOT NULL
+            AND home_lon IS NOT NULL
+            "#,
+        )?;
+
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, f64>(1)?,
+                    row.get::<_, f64>(2)?,
+                ))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut updated = 0;
+
+        for (flight_id, lat, lon) in rows {
+            if let Some(place_name) = crate::parser::LogParser::reverse_geocode_place_name(lat, lon) {
+                conn.execute(
+                    r#"
+                    UPDATE flights
+                    SET home_location_name = ?1
+                    WHERE id = ?2
+                    "#,
+                    params![place_name, flight_id],
+                )?;
+
+                updated += 1;
+            }
+        }
+
+        Ok(updated)
     }
 
     /// Bulk insert telemetry data using DuckDB's Appender for maximum performance
@@ -1165,7 +1217,7 @@ impl Database {
                 drone_model, drone_serial, aircraft_name, battery_serial,
                 CAST(start_time AS VARCHAR) AS start_time,
                 duration_secs, total_distance,
-                max_altitude, max_speed, home_lat, home_lon, point_count,
+                max_altitude, max_speed, home_lat, home_lon, home_location_name, point_count,
                 photo_count, video_count, notes, COALESCE(color, '#7dd3fc') AS color,
                 cycle_count, rc_serial, battery_life
             FROM flights
@@ -1184,7 +1236,6 @@ impl Database {
                     drone_serial: row.get(5)?,
                     aircraft_name: row.get(6)?,
                     battery_serial: row.get(7)?,
-                    cycle_count: row.get(20)?,
                     start_time: row.get(8)?,
                     duration_secs: row.get(9)?,
                     total_distance: row.get(10)?,
@@ -1192,20 +1243,20 @@ impl Database {
                     max_speed: row.get(12)?,
                     home_lat: row.get(13)?,
                     home_lon: row.get(14)?,
-                    point_count: row.get(15)?,
-                    photo_count: row.get(16)?,
-                    video_count: row.get(17)?,
+                    home_location_name: row.get(15)?,
+                    point_count: row.get(16)?,
+                    photo_count: row.get(17)?,
+                    video_count: row.get(18)?,
                     tags: Vec::new(),
-                    notes: row.get(18)?,
-                    color: row.get(19)?,
-                    rc_serial: row.get(21)?,
-                    battery_life: row.get(22)?,
+                    notes: row.get(19)?,
+                    color: row.get(20)?,
+                    cycle_count: row.get(21)?,
+                    rc_serial: row.get(22)?,
+                    battery_life: row.get(23)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
 
-        // Load all tags and attach to flights
-        // Use a separate query to avoid breaking if flight_tags table doesn't exist yet
         let tag_map = self.get_all_flight_tags_with_conn(&conn);
         if let Ok(tags) = tag_map {
             for flight in &mut flights {
@@ -1246,7 +1297,7 @@ impl Database {
                 file_hash, drone_model, drone_serial, aircraft_name, battery_serial,
                 CAST(start_time AS VARCHAR) AS start_time,
                 duration_secs, total_distance,
-                max_altitude, max_speed, home_lat, home_lon, point_count,
+                max_altitude, max_speed, home_lat, home_lon, home_location_name, point_count,
                 photo_count, video_count, notes, COALESCE(color, '#7dd3fc') AS color,
                 cycle_count, rc_serial, battery_life
             FROM flights
@@ -1263,7 +1314,6 @@ impl Database {
                     drone_serial: row.get(5)?,
                     aircraft_name: row.get(6)?,
                     battery_serial: row.get(7)?,
-                    cycle_count: row.get(20)?,
                     start_time: row.get(8)?,
                     duration_secs: row.get(9)?,
                     total_distance: row.get(10)?,
@@ -1271,14 +1321,16 @@ impl Database {
                     max_speed: row.get(12)?,
                     home_lat: row.get(13)?,
                     home_lon: row.get(14)?,
-                    point_count: row.get(15)?,
-                    photo_count: row.get(16)?,
-                    video_count: row.get(17)?,
+                    home_location_name: row.get(15)?,
+                    point_count: row.get(16)?,
+                    photo_count: row.get(17)?,
+                    video_count: row.get(18)?,
                     tags: Vec::new(),
-                    notes: row.get(18)?,
-                    color: row.get(19)?,
-                    rc_serial: row.get(21)?,
-                    battery_life: row.get(22)?,
+                    notes: row.get(19)?,
+                    color: row.get(20)?,
+                    cycle_count: row.get(21)?,
+                    rc_serial: row.get(22)?,
+                    battery_life: row.get(23)?,
                 })
             },
         )
@@ -1449,7 +1501,7 @@ impl Database {
                 f.drone_model, f.drone_serial, f.aircraft_name, f.battery_serial,
                 CAST(f.start_time AS VARCHAR) AS start_time,
                 f.duration_secs, f.total_distance,
-                f.max_altitude, f.max_speed, f.home_lat, f.home_lon, f.point_count,
+                f.max_altitude, f.max_speed, f.home_lat, f.home_lon, f.home_location_name, f.point_count,
                 f.photo_count, f.video_count, f.notes, COALESCE(f.color, '#7dd3fc') AS color,
                 f.cycle_count, f.rc_serial, f.battery_life
             FROM operation_flights ofl
@@ -1470,7 +1522,6 @@ impl Database {
                     drone_serial: row.get(5)?,
                     aircraft_name: row.get(6)?,
                     battery_serial: row.get(7)?,
-                    cycle_count: row.get(20)?,
                     start_time: row.get(8)?,
                     duration_secs: row.get(9)?,
                     total_distance: row.get(10)?,
@@ -1478,14 +1529,16 @@ impl Database {
                     max_speed: row.get(12)?,
                     home_lat: row.get(13)?,
                     home_lon: row.get(14)?,
-                    point_count: row.get(15)?,
-                    photo_count: row.get(16)?,
-                    video_count: row.get(17)?,
+                    home_location_name: row.get(15)?,
+                    point_count: row.get(16)?,
+                    photo_count: row.get(17)?,
+                    video_count: row.get(18)?,
                     tags: Vec::new(),
-                    notes: row.get(18)?,
-                    color: row.get(19)?,
-                    rc_serial: row.get(21)?,
-                    battery_life: row.get(22)?,
+                    notes: row.get(19)?,
+                    color: row.get(20)?,
+                    cycle_count: row.get(21)?,
+                    rc_serial: row.get(22)?,
+                    battery_life: row.get(23)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;

@@ -15,6 +15,7 @@ import { SMART_TAG_TYPES, getEnabledSmartTagTypes, setEnabledSmartTagTypes, Smar
 import { FaComments, FaDiscord, FaGithub } from 'react-icons/fa';
 import { FiBookOpen, FiGlobe, FiMail } from 'react-icons/fi';
 import { useIsMobileRuntime } from '@/hooks/platform/useIsMobileRuntime';
+import { invoke } from '@tauri-apps/api/core';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -626,6 +627,28 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     } finally {
       setIsRestoring(false);
       setBackupProgress(null);
+    }
+  };
+
+  const handleBackfillLocations = async () => {
+    console.log('BACKFILL BUTTON CLICKED');
+    setMessage(null);
+
+    try {
+      const updated = await invoke<number>('backfill_home_location_names');
+      console.log('BACKFILL RESULT:', updated);
+
+      setMessage({
+        type: 'success',
+        text: `${updated} vluchtlogs bijgewerkt met plaatsnamen.`,
+      });
+    } catch (err) {
+      console.error('BACKFILL ERROR:', err);
+
+      setMessage({
+        type: 'error',
+        text: `Locaties bijwerken mislukt: ${err}`,
+      });
     }
   };
 
@@ -1779,6 +1802,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     )}
                   </button>
                 </div>
+
+                <button
+                  onClick={handleBackfillLocations}
+                  disabled={isBusy}
+                  className="mt-3 w-full py-2 px-3 rounded-lg border border-emerald-600 text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  📍 Plaatsnamen aanvullen
+                </button>
 
                 {confirmDeleteAll ? (
                   <div className="mt-4 rounded-lg border border-red-600/60 bg-red-500/10 p-3">

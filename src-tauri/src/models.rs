@@ -53,6 +53,7 @@ pub struct Flight {
     pub max_speed: Option<f64>,
     pub home_lat: Option<f64>,
     pub home_lon: Option<f64>,
+    pub home_location_name: Option<String>,
     pub point_count: Option<i32>,
     pub photo_count: Option<i32>,
     pub video_count: Option<i32>,

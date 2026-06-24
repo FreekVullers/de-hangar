@@ -686,6 +686,27 @@ impl<'a> LogParser<'a> {
         tags
     }
 
+    /// Offline reverse geocoding using the `reverse_geocoder` crate.
+    /// Returns the nearest GeoNames place name for display/filtering.
+    pub fn reverse_geocode_place_name(lat: f64, lon: f64) -> Option<String> {
+        // Skip invalid coordinates
+        if lat.abs() < 0.001 && lon.abs() < 0.001 {
+            return None;
+        }
+
+        let geocoder = reverse_geocoder::ReverseGeocoder::new();
+        let result = geocoder.search((lat, lon));
+        let record = result.record;
+
+        let place_name = record.name.trim();
+
+        if place_name.is_empty() {
+            None
+        } else {
+            Some(place_name.to_string())
+        }
+    }
+
     /// Map ISO 3166-1 alpha-2 country code to country name.
     fn country_from_cc(cc: &str) -> Option<&'static str> {
         match cc {
