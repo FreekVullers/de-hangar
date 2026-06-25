@@ -110,7 +110,7 @@ pub struct Project {
 pub struct Operation {
     pub id: i64,
     pub project_id: Option<i64>,
-    pub name: String,
+    pub name: String,   
     pub purpose: Option<String>,
     pub start_time: Option<String>,
     pub end_time: Option<String>,

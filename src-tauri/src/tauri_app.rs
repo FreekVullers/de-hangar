@@ -8,7 +8,7 @@
 
     use crate::database::{self, Database, DatabaseError};
     use crate::models::{
-        BatteryHealthPoint, BatteryUsage, Flight, FlightDataResponse, FlightDateCount, FlightTag,
+        BatteryHealthPoint, BatteryUsage, Flight, Client, FlightDataResponse, FlightDateCount, FlightTag,
         ImportResult, OverviewStats, TelemetryData, TopDistanceFlight, TopFlight, DroneUsage, Operation,
     };
     use crate::parser::LogParser;
@@ -608,6 +608,7 @@
         project_id: Option<i64>,
         name: String,
         purpose: Option<String>,
+        start_time: Option<String>,
         state: State<'_, AppState>,
     ) -> Result<i64, String> {
         log::info!("Creating operation: {}", name);
@@ -618,12 +619,34 @@
                 project_id,
                 &name,
                 purpose.as_deref(),
+                start_time.as_deref(),
             )
             .map_err(|e| format!("Failed to create operation: {}", e))?;
 
         log::info!("Successfully created operation with ID: {}", operation_id);
 
         Ok(operation_id)
+    }
+
+    #[tauri::command]
+    pub async fn get_all_clients(
+        state: State<'_, AppState>,
+    ) -> Result<Vec<Client>, String> {
+        state
+            .db_authenticated()?
+            .get_all_clients()
+            .map_err(|e| format!("Failed to get clients: {}", e))
+    }
+
+    #[tauri::command]
+    pub async fn create_client(
+        name: String,
+        state: State<'_, AppState>,
+    ) -> Result<i64, String> {
+        state
+            .db_authenticated()?
+            .create_client(&name)
+            .map_err(|e| format!("Failed to create client: {}", e))
     }
 
     /// Link an imported flight log to an operation
@@ -1795,6 +1818,8 @@
                 remove_flight_from_operation,
                 backfill_home_location_names,
                 get_operation_flights,
+                get_all_clients,
+                create_client,
                 get_flight_data,
                 get_overview_stats,
                 get_battery_full_capacity_history,

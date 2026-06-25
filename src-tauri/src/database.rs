@@ -15,7 +15,7 @@ use chrono::{Duration, NaiveDate, Utc};
 use duckdb::{params, Connection, OptionalExt, Result as DuckResult};
 use thiserror::Error;
 
-use crate::models::{BatteryHealthPoint, BatteryUsage, DroneUsage, Flight, Operation, FlightDateCount, FlightMessage, FlightMetadata, FlightTag, OverviewStats, TelemetryPoint, TelemetryRecord, TopDistanceFlight, TopFlight};
+use crate::models::{BatteryHealthPoint, BatteryUsage, DroneUsage, Flight, Client, Operation, FlightDateCount, FlightMessage, FlightMetadata, FlightTag, OverviewStats, TelemetryPoint, TelemetryRecord, TopDistanceFlight, TopFlight};
 
 #[derive(Error, Debug)]
 pub enum DatabaseError {
@@ -281,6 +281,7 @@ impl Database {
                 total_duration_secs DOUBLE,
                 notes_defects       VARCHAR,
                 notes_incidents     VARCHAR,
+                operation_type      VARCHAR,
                 created_at          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 updated_at          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (project_id) REFERENCES projects(id)
@@ -1403,6 +1404,7 @@ impl Database {
         project_id: Option<i64>,
         name: &str,
         purpose: Option<&str>,
+        start_time: Option<&str>,
     ) -> Result<i64, DatabaseError> {
         let conn = self.conn.lock().unwrap();
 
@@ -1414,20 +1416,76 @@ impl Database {
                 id,
                 project_id,
                 name,
-                purpose
+                purpose,
+                start_time
             )
-            VALUES (?1, ?2, ?3, ?4)
+            VALUES (?1, ?2, ?3, ?4, ?5)
             "#,
             params![
                 id,
                 project_id,
                 name,
                 purpose,
+                start_time,
             ],
         )?;
 
         Ok(id)
     }
+
+    /// Get all clients
+pub fn get_all_clients(&self) -> Result<Vec<Client>, DatabaseError> {
+    let conn = self.conn.lock().unwrap();
+
+    let mut stmt = conn.prepare(
+        r#"
+        SELECT
+            id,
+            name,
+            contact_name,
+            email,
+            phone,
+            notes
+        FROM clients
+        ORDER BY name ASC
+        "#,
+    )?;
+
+    let clients: Vec<Client> = stmt
+        .query_map([], |row| {
+            Ok(Client {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                contact_name: row.get(2)?,
+                email: row.get(3)?,
+                phone: row.get(4)?,
+                notes: row.get(5)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(clients)
+}
+
+/// Create a new client
+pub fn create_client(&self, name: &str) -> Result<i64, DatabaseError> {
+    let conn = self.conn.lock().unwrap();
+
+    let id = chrono::Utc::now().timestamp_millis();
+
+    conn.execute(
+        r#"
+        INSERT INTO clients (
+            id,
+            name
+        )
+        VALUES (?1, ?2)
+        "#,
+        params![id, name],
+    )?;
+
+    Ok(id)
+}
 
     /// Get flight telemetry with automatic downsampling for large datasets.
     ///
