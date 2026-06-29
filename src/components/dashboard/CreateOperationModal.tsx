@@ -1,7 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
+import type { Client } from '@/types/flight-management';
 
 interface CreateOperationModalProps {
-  clients: any[];
+  clients: Client[];
   newOperationName: string;
   setNewOperationName: (value: string) => void;
   selectedClientId: number | null;
@@ -60,7 +61,7 @@ export default function CreateOperationModal({
           className="w-full rounded border border-gray-700 bg-drone-dark px-3 py-2 text-white"
         >
           <option value="">Selecteer klant</option>
-          {clients.map((client: any) => (
+          {clients.map((client) => (
             <option key={client.id} value={client.id}>
               {client.name}
             </option>

@@ -1,8 +1,10 @@
+import type { Operation } from '@/types/flight-management';
+
 interface OperationListProps {
-  operations: any[];
+  operations: Operation[];
   selectedOperationId: number | null;
-  onSelect: (operation: any) => void;
-  onDelete: (operation: any) => void;
+  onSelect: (operation: Operation) => void;
+  onDelete: (operation: Operation) => void;
 }
 
 export default function OperationList({
@@ -13,7 +15,7 @@ export default function OperationList({
 }: OperationListProps) {
   return (
     <div className="mt-4 space-y-2">
-      {operations.map((operation: any) => (
+      {operations.map((operation) => (
         <div
           key={operation.id}
           className={`rounded-lg border px-3 py-2 text-sm transition-colors ${

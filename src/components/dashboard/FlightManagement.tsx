@@ -5,11 +5,10 @@ import ConfirmDialog from '../ConfirmDialog';
 import OperationDetails from './OperationDetails';
 import CreateOperationModal from './CreateOperationModal';
 import OperationList from './OperationList';
-import LinkedFlights from './LinkedFlights';
-import FlightPicker from './FlightPicker';
+import type { Client, FlightSummary, Operation } from '@/types/flight-management';
 
 interface FlightManagementProps {
-  flights: any[];
+  flights: FlightSummary[];
 }
 
 export default function FlightManagement({ flights }: FlightManagementProps) {
@@ -18,16 +17,16 @@ export default function FlightManagement({ flights }: FlightManagementProps) {
   const [flightPickerAircraft, setFlightPickerAircraft] = useState('');
   const [flightPickerDate, setFlightPickerDate] = useState('');
   const [flightPickerLocation, setFlightPickerLocation] = useState('');
-  const [operations, setOperations] = useState<any[]>([]);
-  const [operationFlights, setOperationFlights] = useState<any[]>([]);
-  const [clients, setClients] = useState<any[]>([]);
+  const [operations, setOperations] = useState<Operation[]>([]);
+  const [operationFlights, setOperationFlights] = useState<FlightSummary[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [newClientName, setNewClientName] = useState('');
   const [showNewClientInput, setShowNewClientInput] = useState(false);
   const [showCreateOperationModal, setShowCreateOperationModal] = useState(false);
   const [newOperationName, setNewOperationName] = useState('');
   const [newOperationType, setNewOperationType] = useState('3D-mapping');
-  const [operationToDelete, setOperationToDelete] = useState<any | null>(null);
+  const [operationToDelete, setOperationToDelete] = useState<Operation | null>(null);
   const [isDeletingOperation, setIsDeletingOperation] = useState(false);
   const [newOperationDate, setNewOperationDate] = useState(
     new Date().toISOString().split('T')[0]
@@ -37,7 +36,7 @@ export default function FlightManagement({ flights }: FlightManagementProps) {
 
   const loadOperations = async () => {
     try {
-      const result = await invoke<any[]>('get_operations');
+      const result = await invoke<Operation[]>('get_operations');
       setOperations(result);
     } catch (error) {
       console.error('Failed to load operations:', error);
@@ -46,7 +45,7 @@ export default function FlightManagement({ flights }: FlightManagementProps) {
 
   const loadClients = async () => {
     try {
-      const result = await invoke<any[]>('get_all_clients');
+      const result = await invoke<Client[]>('get_all_clients');
       setClients(result);
     } catch (error) {
       console.error('Failed to load clients:', error);
@@ -55,7 +54,7 @@ export default function FlightManagement({ flights }: FlightManagementProps) {
 
   const loadOperationFlights = async (operationId: number) => {
     try {
-      const result = await invoke<any[]>('get_operation_flights', {
+      const result = await invoke<FlightSummary[]>('get_operation_flights', {
         operationId,
       });
 
@@ -76,32 +75,32 @@ export default function FlightManagement({ flights }: FlightManagementProps) {
       .catch((error) => console.error('Failed to load equipment names:', error));
   }, []);
 
-  const aircraftOptions = useMemo(() => {
+    const aircraftOptions = useMemo(() => {
     return Array.from(
-      new Set(
+        new Set(
         flights
-          .map((flight: any) =>
-            aircraftNameMap[flight.droneSerial] ??
+            .map((flight) =>
+            (flight.droneSerial ? aircraftNameMap[flight.droneSerial] : undefined) ??
             flight.aircraftName ??
             flight.droneModel
-          )
-          .filter(Boolean)
-      )
+            )
+            .filter((value): value is string => Boolean(value))
+        )
     ).sort();
-  }, [flights, aircraftNameMap]);
+    }, [flights, aircraftNameMap]);
 
-  const locationOptions = useMemo(() => {
+    const locationOptions = useMemo(() => {
     return Array.from(
-      new Set(
+        new Set(
         flights
-          .map((flight: any) => flight.locationName ?? flight.homeLocationName)
-          .filter(Boolean)
-      )
+            .map((flight) => flight.locationName ?? flight.homeLocationName)
+            .filter((value): value is string => Boolean(value))
+        )
     ).sort();
-  }, [flights]);
+    }, [flights]);  
 
   const linkedFlightIds = useMemo(() => {
-    return new Set(operationFlights.map((flight: any) => flight.id));
+    return new Set(operationFlights.map((flight) => flight.id));
   }, [operationFlights]);
 
   const filteredPickerFlights = useMemo(() => {
@@ -109,11 +108,11 @@ export default function FlightManagement({ flights }: FlightManagementProps) {
     const locationSearch = flightPickerLocation.toLowerCase();
 
     return flights
-      .filter((flight: any) => {
+      .filter((flight) => {
         if (linkedFlightIds.has(flight.id)) return false;
 
         const aircraft =
-          aircraftNameMap[flight.droneSerial] ??
+          (flight.droneSerial ? aircraftNameMap[flight.droneSerial] : undefined) ??
           flight.aircraftName ??
           flight.droneModel ??
           '';
@@ -156,6 +155,9 @@ export default function FlightManagement({ flights }: FlightManagementProps) {
     flightPickerDate,
     flightPickerLocation,
   ]);
+
+  const selectedOperation =
+  operations.find((o) => o.id === selectedOperationId);
 
   return (
     <>
@@ -202,74 +204,44 @@ export default function FlightManagement({ flights }: FlightManagementProps) {
               {operations.length} operaties gevonden
             </p>
       
-            <div className="mt-4 space-y-2">
-              <OperationList
-                operations={operations}
-                selectedOperationId={selectedOperationId}
-                onSelect={(operation) => {
-                    if (selectedOperationId === operation.id) {
-                    setSelectedOperationId(null);
-                    setOperationFlights([]);
-                    setShowFlightPicker(false);
-                    return;
-                    }
+            <div className="mt-6 grid grid-cols-12 gap-6">
 
-                    setSelectedOperationId(operation.id);
-                    loadOperationFlights(operation.id);
-                }}
-                onDelete={(operation) => {
-                    setOperationToDelete(operation);
-                }}
-                />
-
-              {selectedOperationId && (
-                <OperationDetails>
-                  <h4 className="text-lg font-semibold text-white mb-2">
-                    Operatie details
-                  </h4>
-      
-                  <p className="text-gray-400 text-sm mb-4">
-                    Operatie ID: {selectedOperationId}
-                  </p>
-      
-                  <h5 className="text-white font-medium mb-2">
-                    Gekoppelde vluchtlogs
-                  </h5>
-      
-                  <LinkedFlights
-                    operationFlights={operationFlights}
+                <div className="col-span-4">
+                    <OperationList
+                    operations={operations}
                     selectedOperationId={selectedOperationId}
-                    aircraftNameMap={aircraftNameMap}
-                    onUnlinkFlight={async (flightId) => {
-                        if (!selectedOperationId) return;
-
-                        try {
-                        await invoke('remove_flight_from_operation', {
-                            operationId: selectedOperationId,
-                            flightId,
-                        });
-
-                        await loadOperationFlights(selectedOperationId);
-                        } catch (error) {
-                        alert(String(error));
+                    onSelect={(operation) => {
+                        if (selectedOperationId === operation.id) {
+                        setSelectedOperationId(null);
+                        setOperationFlights([]);
+                        setShowFlightPicker(false);
+                        return;
                         }
+
+                        setSelectedOperationId(operation.id);
+                        loadOperationFlights(operation.id);
+                    }}
+                    onDelete={(operation) => {
+                        setOperationToDelete(operation);
                     }}
                     />
-      
-                  <button
-                    type="button"
-                    onClick={() => setShowFlightPicker((value) => !value)}
-                    className="px-3 py-2 rounded-lg border border-drone-primary text-white text-sm hover:bg-drone-primary/10"
-                  >
-                    + Vluchtlog koppelen
-                  </button>
-      
-                  {showFlightPicker && (
-                    <FlightPicker
+                </div>
+
+                <div className="col-span-8">
+
+                    {selectedOperationId ? (
+                    <OperationDetails
+                        selectedOperationId={selectedOperationId}
+                        operationName={selectedOperation?.name ?? ''}
+                        operationType={selectedOperation?.purpose ?? ''}
+                        operationDate={selectedOperation?.startTime ?? ''}
+                        operationFlights={operationFlights}
+                        aircraftNameMap={aircraftNameMap}
+                        showFlightPicker={showFlightPicker}
+                        setShowFlightPicker={setShowFlightPicker}
                         aircraftOptions={aircraftOptions}
                         locationOptions={locationOptions}
                         filteredPickerFlights={filteredPickerFlights}
-                        aircraftNameMap={aircraftNameMap}
                         flightPickerSearch={flightPickerSearch}
                         setFlightPickerSearch={setFlightPickerSearch}
                         flightPickerAircraft={flightPickerAircraft}
@@ -278,25 +250,17 @@ export default function FlightManagement({ flights }: FlightManagementProps) {
                         setFlightPickerDate={setFlightPickerDate}
                         flightPickerLocation={flightPickerLocation}
                         setFlightPickerLocation={setFlightPickerLocation}
-                        onLinkFlight={async (flightId) => {
-                        if (!selectedOperationId) return;
-
-                        try {
-                            await invoke('add_flight_to_operation', {
-                            operationId: selectedOperationId,
-                            flightId,
-                            });
-
-                            await loadOperationFlights(selectedOperationId);
-                        } catch (error) {
-                            alert(String(error));
-                        }
-                        }}
+                        loadOperationFlights={loadOperationFlights}
                     />
-                  )}
-                </OperationDetails>
-              )}
-            </div>
+                    ) : (
+                    <div className="rounded-xl border border-gray-700 bg-drone-dark/40 p-12 text-center text-gray-500">
+                        Selecteer links een operatie om de details te bekijken.
+                    </div>
+                    )}
+
+                </div>
+
+                </div>
           </div>
         </div>
       </div>

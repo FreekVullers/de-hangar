@@ -1,5 +1,7 @@
+import type { FlightSummary } from '@/types/flight-management';
+
 interface LinkedFlightsProps {
-  operationFlights: any[];
+  operationFlights: FlightSummary[];
   selectedOperationId: number;
   aircraftNameMap: Record<string, string>;
   onUnlinkFlight: (flightId: number) => Promise<void>;
@@ -13,10 +15,6 @@ export default function LinkedFlights({
 }: LinkedFlightsProps) {
   return (
     <>
-      <h5 className="text-white font-medium mb-2">
-        Gekoppelde vluchtlogs
-      </h5>
-
       {operationFlights.length === 0 && (
         <p className="text-gray-500 text-sm mb-3">
           Nog geen vluchtlogs gekoppeld
@@ -25,7 +23,7 @@ export default function LinkedFlights({
 
       {operationFlights.length > 0 && (
         <div className="space-y-2 mb-3">
-          {operationFlights.map((flight: any) => (
+          {operationFlights.map((flight) => (
             <div
               key={flight.id}
               className="rounded border border-gray-700 px-3 py-3 text-sm flex items-start justify-between gap-4"
@@ -37,7 +35,7 @@ export default function LinkedFlights({
 
                 <div className="text-gray-400 text-xs mt-1">
                   {flight.startTime ?? 'Geen tijd'} ·{' '}
-                  {aircraftNameMap[flight.droneSerial] ??
+                  {(flight.droneSerial ? aircraftNameMap[flight.droneSerial] : undefined) ??
                     flight.aircraftName ??
                     flight.droneModel ??
                     'Onbekende drone'}{' '}

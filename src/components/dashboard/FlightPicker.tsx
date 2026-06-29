@@ -1,9 +1,10 @@
 import { DebouncedInput } from '../ui/DebouncedInput';
+import type { FlightSummary } from '@/types/flight-management';
 
 interface FlightPickerProps {
   aircraftOptions: string[];
   locationOptions: string[];
-  filteredPickerFlights: any[];
+  filteredPickerFlights: FlightSummary[];
   aircraftNameMap: Record<string, string>;
 
   flightPickerSearch: string;
@@ -82,7 +83,7 @@ export default function FlightPicker({
       </div>
 
       <div className="max-h-80 overflow-auto">
-        {filteredPickerFlights.map((flight: any) => (
+        {filteredPickerFlights.map((flight) => (
           <button
             key={flight.id}
             type="button"
@@ -99,7 +100,7 @@ export default function FlightPicker({
                 (flight.homeLat && flight.homeLon
                   ? `${flight.homeLat.toFixed(5)}, ${flight.homeLon.toFixed(5)}`
                   : 'Geen locatie')}{' '}
-              · {aircraftNameMap[flight.droneSerial] ??
+              · {(flight.droneSerial ? aircraftNameMap[flight.droneSerial] : undefined) ??
                 flight.aircraftName ??
                 flight.droneModel ??
                 'Onbekende drone'} ·{' '}
