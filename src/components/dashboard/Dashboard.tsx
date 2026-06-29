@@ -3,7 +3,7 @@
  * Orchestrates the flight list sidebar, charts, and map
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFlightStore } from '@/stores/flightStore';
 import { FlightList } from './FlightList';
@@ -19,10 +19,10 @@ import { TelemetryCharts } from '@/components/charts/TelemetryCharts';
 import { FlightMap } from '@/components/map/FlightMap';
 import { FlightMessagesModal } from './FlightMessagesModal';
 import { Overview } from './Overview';
+import FlightManagement from './FlightManagement';
 import { ProfileSelector } from './ProfileSelector';
-import { isWebMode, getEquipmentNames } from '@/lib/api';
+import { isWebMode } from '@/lib/api';
 import { useIsMobileRuntime } from '@/hooks/platform/useIsMobileRuntime';
-import { invoke } from '@tauri-apps/api/core';
 
 export function Dashboard() {
   const isMobileRuntime = useIsMobileRuntime();
@@ -44,24 +44,7 @@ export function Dashboard() {
   const { t } = useTranslation();
   const [showSettings, setShowSettings] = useState(false);
   const [showMessagesModal, setShowMessagesModal] = useState(false);
-  const [showFlightPicker, setShowFlightPicker] = useState(false);
-  const [flightPickerSearch, setFlightPickerSearch] = useState('');
-  const [flightPickerAircraft, setFlightPickerAircraft] = useState('');
-  const [flightPickerDate, setFlightPickerDate] = useState('');
-  const [flightPickerLocation, setFlightPickerLocation] = useState('');
   const [activeView, setActiveView] = useState<'flights' | 'overview' | 'flightManagement'>('overview');
-  const [operations, setOperations] = useState<any[]>([]);
-  const flightPickerSearchTimeoutRef = useRef<number | null>(null);
-  const flightPickerLocationTimeoutRef = useRef<number | null>(null);
-  const [operationFlights, setOperationFlights] = useState<any[]>([]);
-  const [showCreateOperationModal, setShowCreateOperationModal] = useState(false);
-  const [newOperationName, setNewOperationName] = useState('');
-  const [newOperationType, setNewOperationType] = useState('3D-mapping');
-  const [newOperationDate, setNewOperationDate] = useState(
-    new Date().toISOString().split('T')[0]
-  );
-  const [aircraftNameMap, setAircraftNameMap] = useState<Record<string, string>>({});
-  const [selectedOperationId, setSelectedOperationId] = useState<number | null>(null);
   const [topSidebarFlightId, setTopSidebarFlightId] = useState<number | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     if (typeof localStorage !== 'undefined') {
@@ -262,120 +245,6 @@ export function Dashboard() {
       loadOverview();
     }
   }, [activeView, loadOverview]);
-
-  const loadOperations = async () => {
-    try {
-      const result = await invoke<any[]>('get_operations');
-      setOperations(result);
-    } catch (error) {
-      console.error('Failed to load operations:', error);
-    }
-  };
-
-  const loadOperationFlights = async (operationId: number) => {
-    try {
-      const result = await invoke<any[]>('get_operation_flights', {
-        operationId,
-      });
-
-      setOperationFlights(result);
-    } catch (error) {
-      console.error('Failed to load operation flights:', error);
-    }
-  };
-
-  useEffect(() => {
-    if (activeView === 'flightManagement') {
-      loadOperations();
-    }
-  }, [activeView]);
-
-  useEffect(() => {
-    getEquipmentNames()
-      .then((names) => setAircraftNameMap(names.aircraft_names))
-      .catch((error) => console.error('Failed to load equipment names:', error));
-  }, []);
-
-  const aircraftOptions = useMemo(() => {
-    return Array.from(
-      new Set(
-        flights
-          .map((flight: any) =>
-            aircraftNameMap[flight.droneSerial] ??
-            flight.aircraftName ??
-            flight.droneModel
-          )
-          .filter(Boolean)
-      )
-    ).sort();
-  }, [flights, aircraftNameMap]);
-
-  const locationOptions = useMemo(() => {
-    return Array.from(
-      new Set(
-        flights
-          .map((flight: any) => flight.locationName ?? flight.homeLocationName)
-          .filter(Boolean)
-      )
-    ).sort();
-  }, [flights]);
-
-  const linkedFlightIds = useMemo(() => {
-    return new Set(operationFlights.map((flight: any) => flight.id));
-  }, [operationFlights]);
-
-  const filteredPickerFlights = useMemo(() => {
-    const search = flightPickerSearch.toLowerCase();
-    const locationSearch = flightPickerLocation.toLowerCase();
-
-    return flights
-      .filter((flight: any) => {
-        if (linkedFlightIds.has(flight.id)) return false;
-
-        const aircraft =
-          aircraftNameMap[flight.droneSerial] ??
-          flight.aircraftName ??
-          flight.droneModel ??
-          '';
-
-        const location = flight.locationName ?? flight.homeLocationName ?? '';
-
-        const matchesSearch = [
-          flight.displayName,
-          flight.fileName,
-          aircraft,
-          flight.aircraftName,
-          flight.droneModel,
-          flight.startTime,
-          flight.homeLat?.toString(),
-          flight.homeLon?.toString(),
-          location,
-        ]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(search));
-
-        const matchesAircraft =
-          !flightPickerAircraft || aircraft === flightPickerAircraft;
-
-        const matchesDate =
-          !flightPickerDate || flight.startTime?.startsWith(flightPickerDate);
-
-        const matchesLocation =
-          !flightPickerLocation ||
-          location.toLowerCase().includes(locationSearch);
-
-        return matchesSearch && matchesAircraft && matchesDate && matchesLocation;
-      })
-      .slice(0, 100);
-  }, [
-    flights,
-    linkedFlightIds,
-    aircraftNameMap,
-    flightPickerSearch,
-    flightPickerAircraft,
-    flightPickerDate,
-    flightPickerLocation,
-  ]);
 
   const appIcon = new URL('../../assets/icon.png', import.meta.url).href;
   const isImporterBusy = isImporting || isBatchProcessing || isImporterExternallyBusy;
@@ -773,319 +642,7 @@ export function Dashboard() {
             </div>
           </div>
         ) : activeView === 'flightManagement' ? (
-          <div className="w-full h-full overflow-auto p-6">
-            <div className="max-w-6xl mx-auto">
-              <h2 className="text-2xl font-bold text-white mb-2">Vluchtbeheer</h2>
-              <p className="text-gray-400 mb-6">
-                Beheer operaties, gekoppelde vluchtlogs, documenten en opmerkingen.
-              </p>
-
-              <div className="rounded-xl border border-gray-700 bg-drone-dark/60 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-white">Operaties</h3>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateOperationModal(true)}
-                    className="px-3 py-2 rounded-lg bg-drone-primary/20 border border-drone-primary text-white text-sm hover:bg-drone-primary/30 transition-colors"
-                  >
-                    Nieuwe operatie
-                  </button>
-                </div>
-                {showCreateOperationModal && (
-                  <div className="mt-4 rounded-lg border border-gray-700 p-4 space-y-4">
-                    <h3 className="text-white font-medium">
-                      Nieuwe operatie
-                    </h3>
-
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-1">
-                        Naam operatie
-                      </label>
-
-                      <input
-                        value={newOperationName}
-                        onChange={(e) => setNewOperationName(e.target.value)}
-                        placeholder="Bijv. Cuypershuis Roermond"
-                        className="w-full rounded border border-gray-700 bg-drone-dark px-3 py-2 text-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-1">
-                        Type vlucht
-                      </label>
-
-                      <select
-                        value={newOperationType}
-                        onChange={(e) => setNewOperationType(e.target.value)}
-                        className="w-full rounded border border-gray-700 bg-drone-dark px-3 py-2 text-white"
-                      >
-                        <option value="3D-mapping">3D Mapping</option>
-                        <option value="Inspectie">Inspectie</option>
-                        <option value="Thermografie">Thermografie</option>
-                        <option value="LiDAR">LiDAR</option>
-                        <option value="Multispectraal">Multispectraal</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-1">
-                        Datum uitvoering
-                      </label>
-
-                      <input
-                        type="date"
-                        value={newOperationDate}
-                        onChange={(e) => setNewOperationDate(e.target.value)}
-                        className="w-full rounded border border-gray-700 bg-drone-dark px-3 py-2 text-white"
-                      />
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowCreateOperationModal(false)}
-                        className="px-3 py-2 rounded border border-gray-700 text-gray-300"
-                      >
-                        Annuleren
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (!newOperationName.trim()) {
-                            alert('Vul een naam voor de operatie in');
-                            return;
-                          }
-
-                          try {
-                            await invoke('create_operation', {
-                              projectId: null,
-                              name: newOperationName,
-                              purpose: newOperationType,
-                              startTime: `${newOperationDate}T00:00:00Z`,
-                            });
-
-                            setShowCreateOperationModal(false);
-                            setNewOperationName('');
-                            await loadOperations();
-                          } catch (error) {
-                            console.error('Failed to create operation:', error);
-                          }
-                        }}
-                        className="px-3 py-2 rounded bg-drone-primary text-white"
-                      >
-                        Opslaan
-                      </button>
-                    </div>
-                  </div>
-                )}
-                <p className="text-gray-500 text-sm">
-                  {operations.length} operaties gevonden
-                </p>
-
-                <div className="mt-4 space-y-2">
-                  {operations.map((operation: any) => (
-                    <div
-                      key={operation.id}
-                      onClick={() => {
-                        setSelectedOperationId(operation.id);
-                        loadOperationFlights(operation.id);
-                      }}
-                      className={`rounded-lg border px-3 py-2 text-sm cursor-pointer transition-colors ${
-                        selectedOperationId === operation.id
-                          ? 'border-drone-primary bg-drone-primary/10 text-white'
-                          : 'border-gray-700 text-white hover:border-gray-500'
-                      }`}
-                    >
-                      {operation.name}
-                    </div>
-                  ))}
-                  {selectedOperationId && (
-                    <div className="mt-6 rounded-xl border border-gray-700 p-4">
-                      <h4 className="text-lg font-semibold text-white mb-2">
-                        Operatie details
-                      </h4>
-
-                      <p className="text-gray-400 text-sm mb-4">
-                        Operatie ID: {selectedOperationId}
-                      </p>
-
-                      <h5 className="text-white font-medium mb-2">
-                        Gekoppelde vluchtlogs
-                      </h5>
-
-                      {operationFlights.length === 0 && (
-                        <p className="text-gray-500 text-sm mb-3">
-                          Nog geen vluchtlogs gekoppeld
-                        </p>
-                      )}
-
-                      {operationFlights.length > 0 && (
-                        <div className="space-y-2 mb-3">
-                          {operationFlights.map((flight: any) => (
-                            <div
-                              key={flight.id}
-                              className="rounded border border-gray-700 px-3 py-3 text-sm flex items-start justify-between gap-4"
-                            >
-                              <div>
-                                <div className="text-white font-medium">
-                                  {flight.displayName}
-                                </div>
-
-                                <div className="text-gray-400 text-xs mt-1">
-                                  {flight.startTime ?? 'Geen tijd'} · {aircraftNameMap[flight.droneSerial] ?? flight.aircraftName ?? flight.droneModel ?? 'Onbekende drone'} · {flight.homeLocationName ?? 'Geen locatie'} · {Math.round((flight.durationSecs ?? 0) / 60)} min
-                                </div>
-
-                                <div className="text-gray-500 text-xs mt-1">
-                                  {Math.round(flight.totalDistance ?? 0)} m · {flight.photoCount ?? 0} foto’s
-                                </div>
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  if (!selectedOperationId) return;
-
-                                  try {
-                                    await invoke('remove_flight_from_operation', {
-                                      operationId: selectedOperationId,
-                                      flightId: flight.id,
-                                    });
-
-                                    await loadOperationFlights(selectedOperationId);
-                                  } catch (error) {
-                                    alert(String(error));
-                                  }
-                                }}
-                                className="text-red-400 hover:text-red-300"
-                                title="Vluchtlog ontkoppelen"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => setShowFlightPicker((value) => !value)}
-                        className="px-3 py-2 rounded-lg border border-drone-primary text-white text-sm hover:bg-drone-primary/10"
-                      >
-                        + Vluchtlog koppelen
-                      </button>
-
-                      {showFlightPicker && (
-                        <div className="mt-4 rounded-lg border border-gray-700 p-3">
-                          <input
-                            defaultValue={flightPickerSearch}
-                            onChange={(event) => {
-                              const value = event.target.value;
-
-                              if (flightPickerSearchTimeoutRef.current) {
-                                window.clearTimeout(flightPickerSearchTimeoutRef.current);
-                              }
-
-                              flightPickerSearchTimeoutRef.current = window.setTimeout(() => {
-                                setFlightPickerSearch(value);
-                              }, 250);
-                            }}
-                            placeholder="Zoeken op naam..."
-                            className="w-full mb-3 rounded border border-gray-700 bg-transparent px-3 py-2 text-sm text-white placeholder:text-gray-500"
-                          />
-
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                            <select
-                              value={flightPickerAircraft}
-                              onChange={(event) => setFlightPickerAircraft(event.target.value)}
-                              className="rounded border border-gray-700 bg-drone-dark px-3 py-2 text-sm text-white"
-                            >
-                              <option value="">Alle toestellen</option>
-                              {aircraftOptions.map((aircraft: any) => (
-                                <option key={aircraft} value={aircraft}>
-                                  {aircraft}
-                                </option>
-                              ))}
-                            </select>
-
-                            <input
-                              type="date"
-                              value={flightPickerDate}
-                              onChange={(event) => setFlightPickerDate(event.target.value)}
-                              className="rounded border border-gray-700 bg-drone-dark px-3 py-2 text-sm text-white"
-                            />
-
-                            <input
-                              defaultValue={flightPickerLocation}
-                              onChange={(event) => {
-                                const value = event.target.value;
-
-                                if (flightPickerLocationTimeoutRef.current) {
-                                  window.clearTimeout(flightPickerLocationTimeoutRef.current);
-                                }
-
-                                flightPickerLocationTimeoutRef.current = window.setTimeout(() => {
-                                  setFlightPickerLocation(value);
-                                }, 250);
-                              }}
-                              placeholder="Zoek/kies plaatsnaam..."
-                              list="flight-location-options"
-                              className="rounded border border-gray-700 bg-drone-dark px-3 py-2 text-sm text-white placeholder:text-gray-500"
-                            />
-
-                            <datalist id="flight-location-options">
-                              {locationOptions.map((location: any) => (
-                                <option key={location} value={location} />
-                              ))}
-                            </datalist>
-                          </div>
-
-                          <div className="max-h-80 overflow-auto">
-                            {filteredPickerFlights.map((flight: any) => (
-                              <button
-                                key={flight.id}
-                                type="button"
-                                onClick={async () => {
-                                  if (!selectedOperationId) return;
-
-                                  try {
-                                    await invoke('add_flight_to_operation', {
-                                      operationId: selectedOperationId,
-                                      flightId: flight.id,
-                                    });
-
-                                    await loadOperationFlights(selectedOperationId);
-                                  } catch (error) {
-                                    alert(String(error));
-                                  }
-                                }}
-                                className="w-full text-left px-3 py-2 border-b border-gray-800 hover:bg-white/5 text-sm"
-                              >
-                                <div className="text-white font-medium">
-                                  {flight.displayName}
-                                </div>
-
-                                <div className="text-gray-400 text-xs">
-                                  {flight.startTime ?? 'Geen tijd'} ·{' '}
-                                  {flight.homeLocationName ??
-                                    (flight.homeLat && flight.homeLon
-                                      ? `${flight.homeLat.toFixed(5)}, ${flight.homeLon.toFixed(5)}`
-                                      : 'Geen locatie')}{' '}
-                                  · {flight.startTime ?? 'Geen tijd'} · {aircraftNameMap[flight.droneSerial] ?? flight.aircraftName ?? flight.droneModel ?? 'Onbekende drone'} · {Math.round((flight.durationSecs ?? 0) / 60)} min
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <FlightManagement flights={flights} />
         ) : activeView === 'overview' ? (
           <div className="w-full h-full overflow-auto">
             {overviewStats ? (
@@ -1297,6 +854,7 @@ export function Dashboard() {
           </div>
         )}
       </main>
+
     </div>
   );
 }

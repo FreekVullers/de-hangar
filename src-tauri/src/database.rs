@@ -1487,6 +1487,98 @@ pub fn create_client(&self, name: &str) -> Result<i64, DatabaseError> {
     Ok(id)
 }
 
+/// Create a new project linked to a client
+pub fn create_project(
+    &self,
+    client_id: Option<i64>,
+    name: &str,
+    location: Option<&str>,
+    notes: Option<&str>,
+) -> Result<i64, DatabaseError> {
+    let conn = self.conn.lock().unwrap();
+
+    let id = chrono::Utc::now().timestamp_millis();
+
+    conn.execute(
+        r#"
+        INSERT INTO projects (
+            id,
+            client_id,
+            name,
+            location,
+            notes
+        )
+        VALUES (?1, ?2, ?3, ?4, ?5)
+        "#,
+        params![
+            id,
+            client_id,
+            name,
+            location,
+            notes,
+        ],
+    )?;
+
+    Ok(id)
+}
+
+/// Delete a project and its operations
+pub fn delete_project(&self, project_id: i64) -> Result<(), DatabaseError> {
+    let conn = self.conn.lock().unwrap();
+
+    conn.execute(
+        r#"
+        DELETE FROM operation_flights
+        WHERE operation_id IN (
+            SELECT id FROM operations WHERE project_id = ?1
+        )
+        "#,
+        params![project_id],
+    )?;
+
+    conn.execute(
+        r#"
+        DELETE FROM operations
+        WHERE project_id = ?1
+        "#,
+        params![project_id],
+    )?;
+
+    conn.execute(
+        r#"
+        DELETE FROM projects
+        WHERE id = ?1
+        "#,
+        params![project_id],
+    )?;
+
+    Ok(())
+}
+
+/// Delete an operation and unlink its flight logs
+pub fn delete_operation(&self, operation_id: i64) -> Result<(), DatabaseError> {
+    let conn = self.conn.lock().unwrap();
+
+    conn.execute(
+        r#"
+        DELETE FROM operation_flights
+        WHERE operation_id = ?1
+        "#,
+        params![operation_id],
+    )?;
+
+    conn.execute(
+        r#"
+        DELETE FROM operations
+        WHERE id = ?1
+        "#,
+        params![operation_id],
+    )?;
+
+    Ok(())
+}
+
+
     /// Get flight telemetry with automatic downsampling for large datasets.
     ///
     /// Strategy:

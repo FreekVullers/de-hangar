@@ -629,6 +629,18 @@
     }
 
     #[tauri::command]
+    pub async fn delete_operation(
+        operation_id: i64,
+        state: State<'_, AppState>,
+    ) -> Result<bool, String> {
+        state
+            .db_authenticated()?
+            .delete_operation(operation_id)
+            .map(|_| true)
+            .map_err(|e| format!("Failed to delete operation: {}", e))
+    }
+
+    #[tauri::command]
     pub async fn get_all_clients(
         state: State<'_, AppState>,
     ) -> Result<Vec<Client>, String> {
@@ -647,6 +659,37 @@
             .db_authenticated()?
             .create_client(&name)
             .map_err(|e| format!("Failed to create client: {}", e))
+    }
+
+    #[tauri::command]
+    pub async fn create_project(
+        client_id: Option<i64>,
+        name: String,
+        location: Option<String>,
+        notes: Option<String>,
+        state: State<'_, AppState>,
+    ) -> Result<i64, String> {
+        state
+            .db_authenticated()?
+            .create_project(
+                client_id,
+                &name,
+                location.as_deref(),
+                notes.as_deref(),
+            )
+            .map_err(|e| format!("Failed to create project: {}", e))
+    }
+
+    #[tauri::command]
+    pub async fn delete_project(
+        project_id: i64,
+        state: State<'_, AppState>,
+    ) -> Result<bool, String> {
+        state
+            .db_authenticated()?
+            .delete_project(project_id)
+            .map(|_| true)
+            .map_err(|e| format!("Failed to delete project: {}", e))
     }
 
     /// Link an imported flight log to an operation
@@ -1814,12 +1857,15 @@
                 get_flights,
                 get_operations,
                 create_operation,
+                delete_operation,
                 add_flight_to_operation,
                 remove_flight_from_operation,
                 backfill_home_location_names,
                 get_operation_flights,
                 get_all_clients,
                 create_client,
+                create_project,
+                delete_project,
                 get_flight_data,
                 get_overview_stats,
                 get_battery_full_capacity_history,
